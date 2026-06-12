@@ -1,0 +1,135 @@
+---
+title: "Crestone_integrated_analysis"
+author: "Laurie Lyon"
+date: "2025-06-24"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(broom)
+library(magrittr)
+source("../../art_lmer_functions.R")
+library(ggpubr)
+```
+
+##Load files 
+Loading in the metadata and results from calprotectin and lactoferrin measurements from patient stool 
+```{r}
+cp_results <- read_tsv(file = "../data/calprotectin_results.txt")
+lf_results <- read_tsv(file = "../data/lactotransferrin_results.txt")
+metadata <- read_tsv(file = "../data/proc_seq_metadata.tsv")
+subj_info <- read_tsv(file = "../data/subject_info.tsv")
+```
+
+```{r}
+cp_lf_results <- rbind(cp_results, lf_results)
+
+(meta_trim <- metadata %>% 
+  select(sampleid, subject_id, visit_des, new_visit_label, new_visit_num) %>% 
+  mutate(visit = gsub(" Cooled", "", visit_des),
+         #one line if else: ifelse(if this, then this, else this)
+         visit = ifelse(visit == "TOC/FUV1", "FUV1", visit))
+  ) 
+
+merged <- meta_trim %>% 
+  left_join(cp_lf_results, by = c("subject_id", "visit")) 
+  
+  
+missing_samples <- filter(merged, is.na(merged$calc_concentration_mean))
+
+#take anything that's not na by adding ! in front of the is.na command
+filtered_merge <- merged %>% 
+  filter(!is.na(calc_concentration_mean)) %>% 
+  mutate(trust_sample = ifelse(is.na(Note), TRUE, FALSE)) %>% 
+  left_join(subj_info, by = c("subject_id"))
+```
+
+
+
+Want to do stats between time points (e.g. at TOC are there differences in cp or lf between treatment groups)
+- factoring in levels between cp and lf 
+```{r}
+##sourced art_lmer_functions.R at top
+
+#ART likes right side variables or things we're grouping by to be "factors"
+#convert visit, treatment groups, subj id to factors 
+filtered_merge_factor <- filtered_merge %>% 
+  convert_as_factor(subject_id, treatment_group, new_visit_num)
+
+#make a table with only cp and one with only lf
+cp_table <- filter(filtered_merge_factor, immune_product == "calprotectin")
+lf_table <- filter(filtered_merge_factor, immune_product == "lactotransferrin")
+
+#running ART lm function
+# this will show differences between treatment groups at every timepoint
+cp_art_lmer <- art_lmer_strat(input_table = cp_table,
+                              strat_variable = "new_visit_num",
+                              model_formula_left = "calc_concentration_mean",
+                              model_formula_right = "treatment_group",
+                              model_contrast_run_by = "treatment_group")
+
+lf_art_lmer <- art_lmer_strat(input_table = lf_table,
+                              strat_variable = "new_visit_num",
+                              model_formula_left = "calc_concentration_mean",
+                              model_formula_right = "treatment_group",
+                              model_contrast_run_by = "treatment_group")
+
+#look at significance by pulling results and contrast out of list 
+#these p values are by Tukey's mult comparisons, not FDR 
+#no significant results 
+cp_art_lmer_results <- cp_art_lmer$ARTResults
+cp_art_lmer_contrast <- cp_art_lmer$ARTContrast
+
+lf_art_lmer_results <- lf_art_lmer$ARTResults
+lf_art_lmer_contrast <- lf_art_lmer$ARTContrast
+
+```
+
+```{r}
+# flip: stratify by treatment group, formula right would be new visit num + (1|subject_id)
+
+cp_treatment_group_strat <- art_lmer_strat(input_table = cp_table,
+                              strat_variable = "treatment_group",
+                              model_formula_left = "calc_concentration_mean",
+                              model_formula_right = "new_visit_num + (1|subject_id)",
+                              model_contrast_run_by = "new_visit_num")
+
+lf_treatment_group_strat <- art_lmer_strat(input_table = lf_table,
+                              strat_variable = "treatment_group",
+                              model_formula_left = "calc_concentration_mean",
+                              model_formula_right = "new_visit_num + (1|subject_id)",
+                              model_contrast_run_by = "new_visit_num")
+
+#look at significance by pulling results and contrast out of list 
+#these p values are by Tukey's mult comparisons, not FDR 
+#no significant results 
+cp_treat_strat_results <- cp_treatment_group_strat$ARTResults
+cp_treat_strat_contrast <- cp_treatment_group_strat$ARTContrast %>%
+  mutate(immune_product = 'calprotectin')
+
+lf_treat_strat_results <- lf_treatment_group_strat$ARTResults
+lf_treat_strat_contrast <- lf_treatment_group_strat$ARTContrast %>%
+  mutate(immune_product = 'lactotransferrin')
+
+# got significant results in lf contrast, need to make in a form that can be easily graphed
+# add immune_product column and fill with 'lactoferrin"
+# then want to bind
+cp_lf_treatment_strat_contrast_results <- rbind(cp_treat_strat_contrast, lf_treat_strat_contrast) %>% 
+  rename(p.adj.signif = signif) %>% #needs to be named p.adj.signif
+  #need to add y position to tell it where to put the stats for each treatment group
+  ## y-axis is in log10 scale so need to make the y.position values match here
+  mutate(y.position = case_when(
+    treatment_group == 'CRS3123_200mg_po_bid' ~ 8.5,
+    treatment_group == 'CRS3123_400mg_po_bid' ~ 8.5,
+    treatment_group == 'Vancomycin_125mg_po_qid' ~ 8.5), 
+    ## pulls the 'new_visit_num' off of the values in these cols so it matches the plot below 
+    group1 = gsub("new_visit_num*", "", group1),
+    group2 = gsub("new_visit_num*", "", group2)) 
+
+```
+
+```{r}
+write_csv(filtered_merge, "../results/processed_cp_lf_data.csv")
+```
+

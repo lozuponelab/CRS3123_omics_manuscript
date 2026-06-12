@@ -1,0 +1,461 @@
+sampleid,subject_id,visit_des,new_visit_label,new_visit_num,visit,calc_concentration_mean,immune_product,Note,trust_sample,treatment_group,cdi_episode,clinical_cure
+101-1001.1,101-1001,Screening Cooled,Screen,1,Screening,110091.21,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.1,101-1001,Screening Cooled,Screen,1,Screening,29991.97,lactotransferrin,"CV is 92 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.3,101-1001,D4 Cooled,D4,3,D4,591498.02,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.3,101-1001,D4 Cooled,D4,3,D4,25881.27,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.4,101-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,74129.7,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.4,101-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,10790.43,lactotransferrin,"CV is 23 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.5,101-1001,FUV2 Cooled,D17,5,FUV2,83049.05,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.5,101-1001,FUV2 Cooled,D17,5,FUV2,6461.12,lactotransferrin,"CV is 23 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.6,101-1001,FUV3 Cooled,D40,6,FUV3,134207.29,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.6,101-1001,FUV3 Cooled,D40,6,FUV3,4697.86,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.7,101-1001,FUV4 Cooled,D70,7,FUV4,50824.28,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1001.7,101-1001,FUV4 Cooled,D70,7,FUV4,5099.82,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+101-1002.3,101-1002,D4 Cooled,D4,3,D4,84235.62,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.3,101-1002,D4 Cooled,D4,3,D4,619436.14,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.4,101-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,101505.24,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.4,101-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,260388,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.4,101-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,39422.59,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.5,101-1002,FUV2 Cooled,D17,5,FUV2,188410.81,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.6,101-1002,FUV3 Cooled,D40,6,FUV3,133169.88,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.6,101-1002,FUV3 Cooled,D40,6,FUV3,37261.7,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.7,101-1002,FUV4 Cooled,D70,7,FUV4,253383.05,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1002.7,101-1002,FUV4 Cooled,D70,7,FUV4,123984.56,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.1,101-1003,Screening Cooled,Screen,1,Screening,866118.37,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.1,101-1003,Screening Cooled,Screen,1,Screening,320523.28,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.2,101-1003,D1 Cooled,D1,2,D1,326876.61,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.2,101-1003,D1 Cooled,D1,2,D1,16183.67,lactotransferrin,"CV is 37 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.3,101-1003,D4 Cooled,D4,3,D4,163870.77,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.3,101-1003,D4 Cooled,D4,3,D4,30682.5,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.4,101-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,286750.02,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.4,101-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,17918.52,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.5,101-1003,FUV2 Cooled,D17,5,FUV2,203590.57,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.5,101-1003,FUV2 Cooled,D17,5,FUV2,146780.77,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.6,101-1003,FUV3 Cooled,D40,6,FUV3,307932.53,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.6,101-1003,FUV3 Cooled,D40,6,FUV3,380780.68,lactotransferrin,"CV is 66 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.7,101-1003,FUV4 Cooled,D70,7,FUV4,131837.61,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+101-1003.7,101-1003,FUV4 Cooled,D70,7,FUV4,10153.21,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+110-1002.1,110-1002,Screening Cooled,Screen,1,Screening,33194402.99,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.1,110-1002,Screening Cooled,Screen,1,Screening,56287079.96,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.3,110-1002,D4 Cooled,D4,3,D4,4226639.8,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.3,110-1002,D4 Cooled,D4,3,D4,1616346.93,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.4,110-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,811013.41,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.4,110-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,167563.56,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.5,110-1002,FUV2 Cooled,D17,5,FUV2,312734.16,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.5,110-1002,FUV2 Cooled,D17,5,FUV2,105244.18,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.6,110-1002,FUV3 Cooled,D40,6,FUV3,801991.19,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.6,110-1002,FUV3 Cooled,D40,6,FUV3,756248.33,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.7,110-1002,FUV4 Cooled,D70,7,FUV4,213817.84,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1002.7,110-1002,FUV4 Cooled,D70,7,FUV4,93400.16,lactotransferrin,"CV is 21 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,first_recurrence,1
+110-1003.1,110-1003,Screening Cooled,Screen,1,Screening,16638615.25,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.1,110-1003,Screening Cooled,Screen,1,Screening,17780154.93,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.2,110-1003,D1 Cooled,D1,2,D1,28972184.68,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.2,110-1003,D1 Cooled,D1,2,D1,33201412.12,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.3,110-1003,D4 Cooled,D4,3,D4,471299.39,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.3,110-1003,D4 Cooled,D4,3,D4,2203250.75,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.4,110-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,121095.93,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.4,110-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,184036.83,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.6,110-1003,FUV3 Cooled,D40,6,FUV3,76641.19,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.6,110-1003,FUV3 Cooled,D40,6,FUV3,3038178.69,lactotransferrin,"CV is 64 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.7,110-1003,FUV4 Cooled,D70,7,FUV4,160496.26,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1003.7,110-1003,FUV4 Cooled,D70,7,FUV4,96092.12,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1004.1,110-1004,Screening Cooled,Screen,1,Screening,1161230.45,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.1,110-1004,Screening Cooled,Screen,1,Screening,7791511.06,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.2,110-1004,D1 Cooled,D1,2,D1,6587989.15,calprotectin,Received empty sample tube (no visible fecal sample received),FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.2,110-1004,D1 Cooled,D1,2,D1,490076.65,lactotransferrin,Received empty sample tube (no visible fecal sample received),FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.3,110-1004,D4 Cooled,D4,3,D4,1827128.72,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.3,110-1004,D4 Cooled,D4,3,D4,13869906.27,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.4,110-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,157534.42,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.4,110-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,67557.64,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.5,110-1004,FUV2 Cooled,D17,5,FUV2,139331.27,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.5,110-1004,FUV2 Cooled,D17,5,FUV2,147022.4,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.6,110-1004,FUV3 Cooled,D40,6,FUV3,286186.66,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.6,110-1004,FUV3 Cooled,D40,6,FUV3,203807.82,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.7,110-1004,FUV4 Cooled,D70,7,FUV4,174170.87,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1004.7,110-1004,FUV4 Cooled,D70,7,FUV4,105699.91,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+110-1005.2,110-1005,D1 Cooled,D1,2,D1,360633.77,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.2,110-1005,D1 Cooled,D1,2,D1,2585791.37,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.3,110-1005,D4 Cooled,D4,3,D4,50287.28,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.3,110-1005,D4 Cooled,D4,3,D4,47935.87,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.4,110-1005,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,118386.87,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.4,110-1005,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,41654.98,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.5,110-1005,FUV2 Cooled,D17,5,FUV2,65942.77,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.5,110-1005,FUV2 Cooled,D17,5,FUV2,31258.08,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.6,110-1005,FUV3 Cooled,D40,6,FUV3,94764.42,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.6,110-1005,FUV3 Cooled,D40,6,FUV3,14740.38,lactotransferrin,"CV is 71 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.7,110-1005,FUV4 Cooled,D70,7,FUV4,124741.56,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+110-1005.7,110-1005,FUV4 Cooled,D70,7,FUV4,47523.12,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.2,114-1002,D1 Cooled,D1,2,D1,141474.94,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.2,114-1002,D1 Cooled,D1,2,D1,221397.44,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.3,114-1002,D4 Cooled,D4,3,D4,237978.93,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.3,114-1002,D4 Cooled,D4,3,D4,81980.08,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.4,114-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,314133.49,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.4,114-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,151049.62,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.5,114-1002,FUV2 Cooled,D17,5,FUV2,593302.38,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.5,114-1002,FUV2 Cooled,D17,5,FUV2,315347.65,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.6,114-1002,FUV3 Cooled,D40,6,FUV3,618735.92,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.6,114-1002,FUV3 Cooled,D40,6,FUV3,189112.93,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.7,114-1002,FUV4 Cooled,D70,7,FUV4,159623.88,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1002.7,114-1002,FUV4 Cooled,D70,7,FUV4,92756.85,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1003.2,114-1003,D1 Cooled,D1,2,D1,1413395.01,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+114-1003.2,114-1003,D1 Cooled,D1,2,D1,23156502.85,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+114-1003.3,114-1003,D4 Cooled,D4,3,D4,785434.55,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+114-1003.3,114-1003,D4 Cooled,D4,3,D4,19758357.21,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+114-1003.7,114-1003,FUV4 Cooled,D70,7,FUV4,2261386.45,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+114-1003.7,114-1003,FUV4 Cooled,D70,7,FUV4,537127.47,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+114-1004.1,114-1004,Screening Cooled,Screen,1,Screening,23088861.6,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.1,114-1004,Screening Cooled,Screen,1,Screening,28686815.8,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.2,114-1004,D1 Cooled,D1,2,D1,22997859.44,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.2,114-1004,D1 Cooled,D1,2,D1,28067229.99,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.4,114-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,67982.97,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.4,114-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,28637.59,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.5,114-1004,FUV2 Cooled,D17,5,FUV2,2979279.27,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.5,114-1004,FUV2 Cooled,D17,5,FUV2,10408934.27,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.6,114-1004,FUV3 Cooled,D40,6,FUV3,965773.07,calprotectin,"CV is 26 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+114-1004.6,114-1004,FUV3 Cooled,D40,6,FUV3,1577768.04,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.2,114-1005,D1 Cooled,D1,2,D1,2520735.79,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.2,114-1005,D1 Cooled,D1,2,D1,28516283.7,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.4,114-1005,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,192779.62,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.4,114-1005,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,247228.28,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.5,114-1005,FUV2 Cooled,D17,5,FUV2,33515781.97,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.5,114-1005,FUV2 Cooled,D17,5,FUV2,88736409.47,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.6,114-1005,FUV3 Cooled,D40,6,FUV3,316959.8,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.6,114-1005,FUV3 Cooled,D40,6,FUV3,613529.86,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.7,114-1005,FUV4 Cooled,D70,7,FUV4,103573.04,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+114-1005.7,114-1005,FUV4 Cooled,D70,7,FUV4,37396.27,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1001.2,116-1001,D1 Cooled,D1,2,D1,121216.24,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1001.2,116-1001,D1 Cooled,D1,2,D1,111387.47,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1001.3,116-1001,D4 Cooled,D4,3,D4,190282.89,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1001.3,116-1001,D4 Cooled,D4,3,D4,523252.33,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1001.6,116-1001,FUV3 Cooled,D40,6,FUV3,9169.67,calprotectin,"CV is 38 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1001.6,116-1001,FUV3 Cooled,D40,6,FUV3,56975.38,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1001.7,116-1001,FUV4 Cooled,D70,7,FUV4,52181.37,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1001.7,116-1001,FUV4 Cooled,D70,7,FUV4,11458.38,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,0
+116-1002.2,116-1002,D1 Cooled,D1,2,D1,864268.84,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.2,116-1002,D1 Cooled,D1,2,D1,16241671.88,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.3,116-1002,D4 Cooled,D4,3,D4,574891.56,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.3,116-1002,D4 Cooled,D4,3,D4,1282579.43,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.4,116-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,653728.86,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.4,116-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,92831.11,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.5,116-1002,FUV2 Cooled,D17,5,FUV2,163127.68,calprotectin,"CV is 29 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.5,116-1002,FUV2 Cooled,D17,5,FUV2,170532.12,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.6,116-1002,FUV3 Cooled,D40,6,FUV3,444344.36,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.6,116-1002,FUV3 Cooled,D40,6,FUV3,342496.99,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.7,116-1002,FUV4 Cooled,D70,7,FUV4,481188.32,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1002.7,116-1002,FUV4 Cooled,D70,7,FUV4,258884.68,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1003.1,116-1003,Screening Cooled,Screen,1,Screening,892323.5,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.1,116-1003,Screening Cooled,Screen,1,Screening,1938556.52,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.2,116-1003,D1 Cooled,D1,2,D1,876440.84,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.2,116-1003,D1 Cooled,D1,2,D1,22510781.45,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.3,116-1003,D4 Cooled,D4,3,D4,191271.92,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.3,116-1003,D4 Cooled,D4,3,D4,677636.02,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.4,116-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,218812.75,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.4,116-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,117470.41,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.5,116-1003,FUV2 Cooled,D17,5,FUV2,559531.33,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.5,116-1003,FUV2 Cooled,D17,5,FUV2,311185.47,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.6,116-1003,FUV3 Cooled,D40,6,FUV3,410207.05,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.6,116-1003,FUV3 Cooled,D40,6,FUV3,136551.01,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.7,116-1003,FUV4 Cooled,D70,7,FUV4,406602.62,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1003.7,116-1003,FUV4 Cooled,D70,7,FUV4,202987.94,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1004.1,116-1004,Screening Cooled,Screen,1,Screening,15157646.83,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.1,116-1004,Screening Cooled,Screen,1,Screening,2315806.99,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.2,116-1004,D1 Cooled,D1,2,D1,28368892.21,calprotectin,"CV is 21 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.2,116-1004,D1 Cooled,D1,2,D1,9581428.78,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.3,116-1004,D4 Cooled,D4,3,D4,65342651.26,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.3,116-1004,D4 Cooled,D4,3,D4,7549174.87,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.4,116-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,314802.54,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.4,116-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,309505.09,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.5,116-1004,FUV2 Cooled,D17,5,FUV2,319033.38,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.5,116-1004,FUV2 Cooled,D17,5,FUV2,146184.79,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.6,116-1004,FUV3 Cooled,D40,6,FUV3,212963.89,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.6,116-1004,FUV3 Cooled,D40,6,FUV3,30627,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.7,116-1004,FUV4 Cooled,D70,7,FUV4,353127.99,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1004.7,116-1004,FUV4 Cooled,D70,7,FUV4,89971.86,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1006.1,116-1006,Screening Cooled,Screen,1,Screening,369343.67,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1006.1,116-1006,Screening Cooled,Screen,1,Screening,8098829.32,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1006.4,116-1006,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,126228.78,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1006.4,116-1006,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,209345.82,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1006.5,116-1006,FUV2 Cooled,D40,6,FUV2,192902.05,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1006.5,116-1006,FUV2 Cooled,D40,6,FUV2,444711.84,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1007.1,116-1007,Screening Cooled,Screen,1,Screening,1219580.31,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1007.1,116-1007,Screening Cooled,Screen,1,Screening,3620971.15,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1007.2,116-1007,D1 Cooled,D1,2,D1,7791517.31,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1007.2,116-1007,D1 Cooled,D1,2,D1,4021245.28,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1007.4,116-1007,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,45436.72,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1007.4,116-1007,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,30308.2,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1007.5,116-1007,FUV2 Cooled,D40,6,FUV2,41272.3,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1007.5,116-1007,FUV2 Cooled,D40,6,FUV2,60065.03,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+116-1008.1,116-1008,Screening Cooled,Screen,1,Screening,176732.6,calprotectin,"CV is 21 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1008.1,116-1008,Screening Cooled,Screen,1,Screening,1864377.87,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1008.4,116-1008,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,93834.88,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1008.4,116-1008,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,559557.31,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1008.5,116-1008,FUV2 Cooled,D40,6,FUV2,157701.67,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1008.5,116-1008,FUV2 Cooled,D40,6,FUV2,416045.9,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1009.1,116-1009,Screening Cooled,Screen,1,Screening,37373.35,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1009.1,116-1009,Screening Cooled,Screen,1,Screening,2715621.37,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1009.2,116-1009,D1 Cooled,D1,2,D1,850159.94,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1009.2,116-1009,D1 Cooled,D1,2,D1,18755426.19,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1009.4,116-1009,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,83850.97,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1009.4,116-1009,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,127399.3,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1009.5,116-1009,FUV2 Cooled,D40,6,FUV2,51216.18,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1009.5,116-1009,FUV2 Cooled,D40,6,FUV2,152889.21,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+116-1010.2,116-1010,D1 Cooled,D1,2,D1,69016914.24,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1010.2,116-1010,D1 Cooled,D1,2,D1,53133735.02,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1010.4,116-1010,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,19829.58,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1010.4,116-1010,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,147709.32,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1010.5,116-1010,FUV2 Cooled,D40,6,FUV2,44439.86,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1010.5,116-1010,FUV2 Cooled,D40,6,FUV2,87393.92,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+116-1011.1,116-1011,Screening Cooled,Screen,1,Screening,10617880.8,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1011.1,116-1011,Screening Cooled,Screen,1,Screening,32116765.04,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1011.2,116-1011,D1 Cooled,D1,2,D1,646510.44,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1011.2,116-1011,D1 Cooled,D1,2,D1,26004445.56,lactotransferrin,"CV is 22 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+116-1011.4,116-1011,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,217287.83,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1011.4,116-1011,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,205414.48,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1011.5,116-1011,FUV2 Cooled,D40,6,FUV2,115202.05,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1011.5,116-1011,FUV2 Cooled,D40,6,FUV2,1460243.29,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+116-1012.2,116-1012,D1 Cooled,D1,2,D1,54365400.74,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1012.2,116-1012,D1 Cooled,D1,2,D1,13699035.57,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1012.4,116-1012,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,279289.1,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1012.4,116-1012,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,154683.29,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1012.5,116-1012,FUV2 Cooled,D40,6,FUV2,198807.29,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+116-1012.5,116-1012,FUV2 Cooled,D40,6,FUV2,52839.61,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,first_recurrence,1
+117-1945.1,117-1945,Screening Cooled,Screen,1,Screening,235590.3,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.1,117-1945,Screening Cooled,Screen,1,Screening,189502.89,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.2,117-1945,D1 Cooled,D1,2,D1,424149.03,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.2,117-1945,D1 Cooled,D1,2,D1,116205.38,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.3,117-1945,D4 Cooled,D4,3,D4,463653.42,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.3,117-1945,D4 Cooled,D4,3,D4,473386.37,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.4,117-1945,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,1862389,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.4,117-1945,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,1868508.09,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.5,117-1945,FUV2 Cooled,D17,5,FUV2,1448635.72,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.5,117-1945,FUV2 Cooled,D17,5,FUV2,1302375.66,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.6,117-1945,FUV3 Cooled,D40,6,FUV3,2403452.21,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.6,117-1945,FUV3 Cooled,D40,6,FUV3,1601215.48,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.7,117-1945,FUV4 Cooled,D70,7,FUV4,2069643.01,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+117-1945.7,117-1945,FUV4 Cooled,D70,7,FUV4,1829939.04,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.1,120-2201,Screening Cooled,Screen,1,Screening,743230.11,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.1,120-2201,Screening Cooled,Screen,1,Screening,1556864.16,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.2,120-2201,D1 Cooled,D1,2,D1,678405.99,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.2,120-2201,D1 Cooled,D1,2,D1,678284.71,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.3,120-2201,D4 Cooled,D4,3,D4,1146738.7,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.3,120-2201,D4 Cooled,D4,3,D4,572701.99,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.4,120-2201,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,190145.23,calprotectin,"CV is 37 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.4,120-2201,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,90413.09,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.5,120-2201,FUV2 Cooled,D17,5,FUV2,698510.45,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.5,120-2201,FUV2 Cooled,D17,5,FUV2,183601.6,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.6,120-2201,FUV3 Cooled,D40,6,FUV3,225533.8,calprotectin,"CV is 27 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.6,120-2201,FUV3 Cooled,D40,6,FUV3,113791.59,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.7,120-2201,FUV4 Cooled,D70,7,FUV4,205353.91,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2201.7,120-2201,FUV4 Cooled,D70,7,FUV4,28986.2,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.1,120-2203,Screening Cooled,Screen,1,Screening,233522.45,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.1,120-2203,Screening Cooled,Screen,1,Screening,716988.71,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.2,120-2203,D1 Cooled,D1,2,D1,559775.78,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.2,120-2203,D1 Cooled,D1,2,D1,1951527.04,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.3,120-2203,D4 Cooled,D4,3,D4,386281.88,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.3,120-2203,D4 Cooled,D4,3,D4,5064399.27,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.4,120-2203,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,91506.46,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.4,120-2203,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,15980.31,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.5,120-2203,FUV2 Cooled,D17,5,FUV2,94398.05,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.5,120-2203,FUV2 Cooled,D17,5,FUV2,57543.7,lactotransferrin,"CV is 21 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.6,120-2203,FUV3 Cooled,D40,6,FUV3,367165.63,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.6,120-2203,FUV3 Cooled,D40,6,FUV3,95397.5,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.7,120-2203,FUV4 Cooled,D70,7,FUV4,94652.16,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2203.7,120-2203,FUV4 Cooled,D70,7,FUV4,14412.97,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+120-2204.1,120-2204,Screening Cooled,Screen,1,Screening,45422386.81,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2204.1,120-2204,Screening Cooled,Screen,1,Screening,36888724.56,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2204.2,120-2204,D1 Cooled,D1,2,D1,19981588.44,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2204.2,120-2204,D1 Cooled,D1,2,D1,23538375.64,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2204.4,120-2204,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,263211.94,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2204.4,120-2204,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,210589.31,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2204.5,120-2204,FUV2 Cooled,D40,6,FUV2,405303.16,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2204.5,120-2204,FUV2 Cooled,D40,6,FUV2,901913.91,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+120-2205.2,120-2205,D1 Cooled,D1,2,D1,7823421.49,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+120-2205.2,120-2205,D1 Cooled,D1,2,D1,45173079.79,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+120-2205.4,120-2205,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,203633.48,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+120-2205.4,120-2205,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,876484.31,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+120-2205.5,120-2205,FUV2 Cooled,D40,6,FUV2,216923.12,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+120-2205.5,120-2205,FUV2 Cooled,D40,6,FUV2,262460.55,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.1,122-1001,Screening Cooled,Screen,1,Screening,533974.46,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.1,122-1001,Screening Cooled,Screen,1,Screening,755904.12,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.2,122-1001,D1 Cooled,D1,2,D1,746679.47,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.2,122-1001,D1 Cooled,D1,2,D1,830034.8,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.4,122-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,121656.99,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.4,122-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,352930.02,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.5,122-1001,FUV2 Cooled,D17,5,FUV2,65263.54,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.5,122-1001,FUV2 Cooled,D17,5,FUV2,361771.74,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.6,122-1001,FUV3 Cooled,D40,6,FUV3,143226.89,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.6,122-1001,FUV3 Cooled,D40,6,FUV3,1092384.84,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.7,122-1001,FUV4 Cooled,D70,7,FUV4,48643.01,calprotectin,"CV is 35 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+122-1001.7,122-1001,FUV4 Cooled,D70,7,FUV4,64000.03,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1002.1,122-1002,Screening Cooled,Screen,1,Screening,1430120.46,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.1,122-1002,Screening Cooled,Screen,1,Screening,958384.12,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.2,122-1002,D1 Cooled,D1,2,D1,759362.99,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.2,122-1002,D1 Cooled,D1,2,D1,454941.05,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.3,122-1002,D4 Cooled,D4,3,D4,2433069.31,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.3,122-1002,D4 Cooled,D4,3,D4,1411316.61,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.4,122-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,75562.4,calprotectin,"CV is 32 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.4,122-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,549843,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.5,122-1002,FUV2 Cooled,D17,5,FUV2,123072.15,calprotectin,"CV is 21 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.5,122-1002,FUV2 Cooled,D17,5,FUV2,9482.2,lactotransferrin,"CV is 31 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.6,122-1002,FUV3 Cooled,D40,6,FUV3,16148.08,calprotectin,"CV is 43 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.6,122-1002,FUV3 Cooled,D40,6,FUV3,333.22,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.7,122-1002,FUV4 Cooled,D70,7,FUV4,63513.75,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1002.7,122-1002,FUV4 Cooled,D70,7,FUV4,15837.99,lactotransferrin,"CV is 79 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+122-1003.1,122-1003,Screening Cooled,Screen,1,Screening,30769.01,calprotectin,"CV is 41 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.1,122-1003,Screening Cooled,Screen,1,Screening,280775.15,lactotransferrin,"CV is 40 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.2,122-1003,D1 Cooled,D1,2,D1,44567.04,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.2,122-1003,D1 Cooled,D1,2,D1,370775.27,lactotransferrin,"CV is 37 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.3,122-1003,D4 Cooled,D4,3,D4,226175.73,calprotectin,"CV is 29 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.3,122-1003,D4 Cooled,D4,3,D4,42070.54,lactotransferrin,"CV is 104 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.4,122-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,161337.54,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.4,122-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,40246.19,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.5,122-1003,FUV2 Cooled,D17,5,FUV2,62083.31,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.5,122-1003,FUV2 Cooled,D17,5,FUV2,23117.06,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.6,122-1003,FUV3 Cooled,D40,6,FUV3,91554.44,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.6,122-1003,FUV3 Cooled,D40,6,FUV3,47172.33,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.7,122-1003,FUV4 Cooled,D70,7,FUV4,372791.65,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+122-1003.7,122-1003,FUV4 Cooled,D70,7,FUV4,79960.24,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+123-1001.1,123-1001,Screening Cooled,Screen,1,Screening,1537439.24,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.1,123-1001,Screening Cooled,Screen,1,Screening,423548.3,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.2,123-1001,D1 Cooled,D1,2,D1,1644334.38,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.2,123-1001,D1 Cooled,D1,2,D1,284926.97,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.3,123-1001,D4 Cooled,D4,3,D4,944144.63,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.3,123-1001,D4 Cooled,D4,3,D4,362574.41,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.4,123-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,611719.08,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.4,123-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,87561.83,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.5,123-1001,FUV2 Cooled,D17,5,FUV2,818203.24,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.5,123-1001,FUV2 Cooled,D17,5,FUV2,165064.04,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.6,123-1001,FUV3 Cooled,D40,6,FUV3,127461.47,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.6,123-1001,FUV3 Cooled,D40,6,FUV3,13857.72,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.7,123-1001,FUV4 Cooled,D70,7,FUV4,730931.13,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+123-1001.7,123-1001,FUV4 Cooled,D70,7,FUV4,3621168.98,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+128-1001.1,128-1001,Screening Cooled,Screen,1,Screening,3873594.97,calprotectin,"CV is 95 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.1,128-1001,Screening Cooled,Screen,1,Screening,8814566.44,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.2,128-1001,D1 Cooled,D1,2,D1,577016.66,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.2,128-1001,D1 Cooled,D1,2,D1,12614134.05,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.3,128-1001,D4 Cooled,D4,3,D4,189918.28,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.3,128-1001,D4 Cooled,D4,3,D4,189112.91,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.4,128-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,109081.87,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.4,128-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,409521.67,lactotransferrin,"CV is 91 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.6,128-1001,FUV3 Cooled,D40,6,FUV3,1524509.06,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.6,128-1001,FUV3 Cooled,D40,6,FUV3,7808603.11,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.7,128-1001,FUV4 Cooled,D70,7,FUV4,365052.97,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1001.7,128-1001,FUV4 Cooled,D70,7,FUV4,54793.88,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,1
+128-1002.1,128-1002,Screening Cooled,Screen,1,Screening,127357.86,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.1,128-1002,Screening Cooled,Screen,1,Screening,4831673.96,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.2,128-1002,D1 Cooled,D1,2,D1,449875.87,calprotectin,"CV is 23 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.2,128-1002,D1 Cooled,D1,2,D1,6797609.05,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.3,128-1002,D4 Cooled,D4,3,D4,294495.72,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.3,128-1002,D4 Cooled,D4,3,D4,4601844.57,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.5,128-1002,FUV2 Cooled,D17,5,FUV2,244415.24,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.5,128-1002,FUV2 Cooled,D17,5,FUV2,795951.21,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.6,128-1002,FUV3 Cooled,D40,6,FUV3,904382.03,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.6,128-1002,FUV3 Cooled,D40,6,FUV3,1213156,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.7,128-1002,FUV4 Cooled,D70,7,FUV4,640985.67,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+128-1002.7,128-1002,FUV4 Cooled,D70,7,FUV4,633677.18,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+130-1001.3,130-1001,D4 Cooled,D4,3,D4,1022552.33,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.3,130-1001,D4 Cooled,D4,3,D4,818144.68,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.4,130-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,547596.42,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.4,130-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,6935039.77,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.5,130-1001,FUV2 Cooled,D17,5,FUV2,163790.67,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.5,130-1001,FUV2 Cooled,D17,5,FUV2,435185.22,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.6,130-1001,FUV3 Cooled,D40,6,FUV3,442881.71,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.6,130-1001,FUV3 Cooled,D40,6,FUV3,312818.69,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.7,130-1001,FUV4 Cooled,D70,7,FUV4,117579.21,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+130-1001.7,130-1001,FUV4 Cooled,D70,7,FUV4,102751.01,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+131-1001.1,131-1001,Screening Cooled,Screen,1,Screening,264175.37,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,0
+131-1001.1,131-1001,Screening Cooled,Screen,1,Screening,59231.91,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,0
+131-1001.2,131-1001,D1 Cooled,D1,2,D1,387772.72,calprotectin,"CV is 24 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,0
+131-1001.2,131-1001,D1 Cooled,D1,2,D1,85732.79,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,0
+131-1001.3,131-1001,D4 Cooled,D4,3,D4,621385.46,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,0
+131-1001.3,131-1001,D4 Cooled,D4,3,D4,39457.37,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,0
+139-1001.2,139-1001,D1 Cooled,D1,2,D1,1257064.82,calprotectin,"CV is 30 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.2,139-1001,D1 Cooled,D1,2,D1,11709084.88,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.3,139-1001,D4 Cooled,D4,3,D4,357625.74,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.3,139-1001,D4 Cooled,D4,3,D4,373272.61,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.4,139-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,544031.66,calprotectin,"CV is 53 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.4,139-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,3889.03,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.5,139-1001,FUV2 Cooled,D17,5,FUV2,247908.36,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.5,139-1001,FUV2 Cooled,D17,5,FUV2,2524.01,lactotransferrin,"CV is 22 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.6,139-1001,FUV3 Cooled,D40,6,FUV3,126812.04,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.6,139-1001,FUV3 Cooled,D40,6,FUV3,23450.76,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.7,139-1001,FUV4 Cooled,D70,7,FUV4,27637.3,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1001.7,139-1001,FUV4 Cooled,D70,7,FUV4,15243.12,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+139-1002.2,139-1002,D1 Cooled,D1,2,D1,152262.06,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.2,139-1002,D1 Cooled,D1,2,D1,173210.11,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.3,139-1002,D4 Cooled,D4,3,D4,357839.41,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.3,139-1002,D4 Cooled,D4,3,D4,21412.82,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.4,139-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,244041.16,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.4,139-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,88040.09,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.5,139-1002,FUV2 Cooled,D17,5,FUV2,290919.94,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.5,139-1002,FUV2 Cooled,D17,5,FUV2,94566.31,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.6,139-1002,FUV3 Cooled,D40,6,FUV3,915333.84,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.6,139-1002,FUV3 Cooled,D40,6,FUV3,262187.79,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.7,139-1002,FUV4 Cooled,D70,7,FUV4,389840.18,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+139-1002.7,139-1002,FUV4 Cooled,D70,7,FUV4,78663.45,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,first_recurrence,1
+140-1002.3,140-1002,D4 Cooled,D4,3,D4,28951.92,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1002.3,140-1002,D4 Cooled,D4,3,D4,381196.41,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1002.4,140-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,197430.23,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1002.4,140-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,587551.72,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1002.5,140-1002,FUV2 Cooled,D17,5,FUV2,319670.5,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1002.5,140-1002,FUV2 Cooled,D17,5,FUV2,4765062.87,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1002.7,140-1002,FUV4 Cooled,D70,7,FUV4,55695.48,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1002.7,140-1002,FUV4 Cooled,D70,7,FUV4,5770105.92,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+140-1003.3,140-1003,D4 Cooled,D4,3,D4,20183716.21,calprotectin,"CV is 26 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,first_recurrence,0
+140-1003.3,140-1003,D4 Cooled,D4,3,D4,4807482.81,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,first_recurrence,0
+146-1001.1,146-1001,Screening Cooled,Screen,1,Screening,4761949.55,calprotectin,"CV is 55 (CV value is more than 20, it can be considered as less reliable).",FALSE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.1,146-1001,Screening Cooled,Screen,1,Screening,4771011.24,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.2,146-1001,D1 Cooled,D1,2,D1,221021.27,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.2,146-1001,D1 Cooled,D1,2,D1,304105.91,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.3,146-1001,D4 Cooled,D4,3,D4,361611.62,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.3,146-1001,D4 Cooled,D4,3,D4,1268767.44,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.4,146-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,633596.65,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.4,146-1001,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,462557.04,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.5,146-1001,FUV2 Cooled,D17,5,FUV2,560977.66,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.5,146-1001,FUV2 Cooled,D17,5,FUV2,438426.82,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.6,146-1001,FUV3 Cooled,D40,6,FUV3,407858.27,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.6,146-1001,FUV3 Cooled,D40,6,FUV3,516232.99,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.7,146-1001,FUV4 Cooled,D70,7,FUV4,313302.6,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1001.7,146-1001,FUV4 Cooled,D70,7,FUV4,805450.8,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.1,146-1002,Screening Cooled,Screen,1,Screening,542061.06,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.1,146-1002,Screening Cooled,Screen,1,Screening,878849,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.2,146-1002,D1 Cooled,D1,2,D1,979336.02,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.2,146-1002,D1 Cooled,D1,2,D1,1522970.1,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.3,146-1002,D4 Cooled,D4,3,D4,712915.18,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.3,146-1002,D4 Cooled,D4,3,D4,372387.48,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.4,146-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,626910.92,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.4,146-1002,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,1467763.6,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.5,146-1002,FUV2 Cooled,D17,5,FUV2,491673.36,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.5,146-1002,FUV2 Cooled,D17,5,FUV2,1556413.81,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.6,146-1002,FUV3 Cooled,D40,6,FUV3,999447.92,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.6,146-1002,FUV3 Cooled,D40,6,FUV3,1453663.2,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.7,146-1002,FUV4 Cooled,D70,7,FUV4,186966.05,calprotectin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1002.7,146-1002,FUV4 Cooled,D70,7,FUV4,1271765.33,lactotransferrin,NA,TRUE,Vancomycin_125mg_po_qid,primary_episode,1
+146-1003.1,146-1003,Screening Cooled,Screen,1,Screening,55040.58,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.1,146-1003,Screening Cooled,Screen,1,Screening,297441.03,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.2,146-1003,D1 Cooled,D1,2,D1,87833.75,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.2,146-1003,D1 Cooled,D1,2,D1,228045.42,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.3,146-1003,D4 Cooled,D4,3,D4,143837.51,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.3,146-1003,D4 Cooled,D4,3,D4,72098.36,lactotransferrin,"CV is 44 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.4,146-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,136012.38,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.4,146-1003,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,48482.03,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.5,146-1003,FUV2 Cooled,D17,5,FUV2,87548.4,calprotectin,"CV is 47 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.5,146-1003,FUV2 Cooled,D17,5,FUV2,30286.23,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.6,146-1003,FUV3 Cooled,D40,6,FUV3,74649.44,calprotectin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.6,146-1003,FUV3 Cooled,D40,6,FUV3,26494.14,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.7,146-1003,FUV4 Cooled,D70,7,FUV4,54843.87,calprotectin,"CV is 80 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_400mg_po_bid,primary_episode,1
+146-1003.7,146-1003,FUV4 Cooled,D70,7,FUV4,12087.96,lactotransferrin,NA,TRUE,CRS3123_400mg_po_bid,primary_episode,1
+146-1004.1,146-1004,Screening Cooled,Screen,1,Screening,39325.14,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.1,146-1004,Screening Cooled,Screen,1,Screening,821184.79,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.2,146-1004,D1 Cooled,D1,2,D1,92184.77,calprotectin,"CV is 68 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.2,146-1004,D1 Cooled,D1,2,D1,511047.45,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.3,146-1004,D4 Cooled,D4,3,D4,125220.22,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.3,146-1004,D4 Cooled,D4,3,D4,418376.58,lactotransferrin,"CV is 22 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.4,146-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,150608.66,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.4,146-1004,TOC/FUV1 Cooled,D10-15/TOC,4,FUV1,102783.2,lactotransferrin,"CV is 25 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.5,146-1004,FUV2 Cooled,D17,5,FUV2,372195.27,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.5,146-1004,FUV2 Cooled,D17,5,FUV2,208820.33,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.6,146-1004,FUV3 Cooled,D40,6,FUV3,50360.08,calprotectin,"CV is 45 (CV value is more than 20, it can be considered as less reliable).",FALSE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.6,146-1004,FUV3 Cooled,D40,6,FUV3,41483.88,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.7,146-1004,FUV4 Cooled,D70,7,FUV4,30607.51,calprotectin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1
+146-1004.7,146-1004,FUV4 Cooled,D70,7,FUV4,57187.59,lactotransferrin,NA,TRUE,CRS3123_200mg_po_bid,primary_episode,1

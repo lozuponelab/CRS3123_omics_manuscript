@@ -1,0 +1,483 @@
+---
+title: "cytokine_analysis"
+author: "Laurie Lyon"
+date: "2025-07-08"
+output: html_document
+---
+
+```{r}
+#Replace with your FP to this folder
+#setwd("~/CRS3123_omics_manuscript/analysis/4_fecal_immune/scripts")
+```
+
+```{r}
+library(readxl)
+library(eatTools) #for rbind_common
+library(tidyverse)
+library(broom)
+library(magrittr)
+source("../../art_lmer_functions.R")
+source("../../diff_between_means_calc.R")
+library(ggpubr)
+#library(apppleplots)
+library(lme4)
+library(lmerTest)
+library(lmtest)
+```
+
+```{r}
+BCA_total_protein <- read_excel("../data/BCA_total_protein.xlsx")
+
+cytokine_excel_fp <- "../data/cytokine_panel_1.xlsx"
+proinflamm_cytokine_excel_fp <- "../data/proinflamm_cytokine_panel_1.xlsx"
+
+cp_lf_results <- read_csv("../results/processed_cp_lf_data.csv")
+
+metadata <- read_tsv(file = "../data/proc_seq_metadata.tsv")
+clin_metadata <- read_tsv(file = "../data/clinical_metadata.txt")
+subj_info <- read_tsv(file = "../data/subject_info.tsv")
+
+ULOD <- read_excel("../data/ULOD_cytokines.xlsx")
+plates <- read_excel("../data/cytokine_subj_plates.xlsx")
+LLOD <- read_excel("../data/LLOD_cytokines.xlsx")
+```
+
+## reading in cytokine raw data excel sheet and making it into a code friendly tibble/dataframe :))
+```{r}
+## pulling sheet names off of excel workbook so we can read them all in 
+cytokine_sheet_names <- excel_sheets(cytokine_excel_fp)
+
+## empty tibble for outputs
+cytokine_dfs <- tibble()
+
+for (sheet_name in cytokine_sheet_names) {
+  tmp_df <- read_excel(cytokine_excel_fp,
+                       sheet = sheet_name, 
+                       col_names = TRUE)
+  ## use rbind to catch all outputs and smush them on top of each other (long format)
+  cytokine_dfs <- rbind(cytokine_dfs, tmp_df)
+}
+
+## checking that all cytokine sheets were read in properly 
+unique(cytokine_dfs$immune_product)
+
+
+```
+```{r}
+## pulling sheet names off of excel workbook so we can read them all in 
+proinflamm_cytokine_sheet_names <- excel_sheets(proinflamm_cytokine_excel_fp)
+
+## empty tibble for outputs
+proinflamm_cytokine_dfs <- tibble()
+
+for (sheet_name in proinflamm_cytokine_sheet_names) {
+  tmp_df <- read_excel(proinflamm_cytokine_excel_fp,
+                       sheet = sheet_name, 
+                       col_names = TRUE)
+  ## use rbind to catch all outputs and smush them on top of each other (long format)
+  proinflamm_cytokine_dfs <- rbind(proinflamm_cytokine_dfs, tmp_df)
+}
+
+## checking that all cytokine sheets were read in properly 
+unique(proinflamm_cytokine_dfs$immune_product)
+```
+
+Merge with metadata
+
+```{r}
+(meta_trim <- metadata %>% 
+  dplyr::select(sampleid, subject_id, visit_des, new_visit_label, new_visit_num) %>% 
+  mutate(visit = gsub(" Cooled", "", visit_des),
+         #one line if else: ifelse(if this, then this, else this)
+         visit = ifelse(visit == "TOC/FUV1", "FUV1", visit))
+  ) 
+
+merged_cyto <- meta_trim %>% 
+  left_join(cytokine_dfs, by = c("subject_id", "visit"))
+
+merged_proinflamm <- meta_trim %>% 
+  left_join(proinflamm_cytokine_dfs, by = c("subject_id", "visit"))
+
+#  
+all_cyto <- rbind(merged_cyto, merged_proinflamm)
+all_cyto <- left_join(all_cyto, subj_info, by = c("subject_id"))
+
+all_cyto <- all_cyto %>% 
+  left_join(plates, by = c("subject_id")) %>% 
+  left_join(LLOD, by = c("plate", "immune_product")) %>% 
+  left_join(ULOD, by = c("subject_id", "visit", "immune_product")) %>% 
+  left_join(BCA_total_protein, by = c("subject_id", "visit"))
+
+```
+
+
+```{r}
+min(all_cyto$calc_concentration_mean, na.rm = TRUE)
+
+#all_immune_markers$calc_concentration_mean <- type.convert(sub("NaN", 0, as.matrix(all_immune_markers$calc_concentration_mean))
+
+#chose LOD/2
+all_cytokines_filtered <- all_cyto %>% 
+  filter(!is.na(calc_concentration_mean)) %>% 
+  mutate(calc_concentration_mean = as.numeric(calc_concentration_mean),
+    calc_concentration_mean = case_when(
+    calc_concentration_mean == "NaN" ~ Min/2, #using LOD/2 for below LOD (curve minimum assigned value)
+    Note.x == "Value is above the range"| Note.x == "Value is above the range." ~ Max, #default to max assignable value
+    .default = calc_concentration_mean
+    )) 
+  # mutate(total_protein_ug_mL = ifelse(total_protein_ug_mL == "NA", NA, as.numeric(total_protein_ug_mL))) %>%
+  # filter(!is.na(total_protein_ug_mL)) %>% 
+  # #group_by(sampleid) %>% 
+  # mutate(norm_conc_BCA = calc_concentration_mean/(total_protein_ug_mL * 1e6))
+
+all_immune_markers_filtered <- rbind_common(all_cytokines_filtered, cp_lf_results)
+
+class(all_immune_markers_filtered$calc_concentration_mean)
+
+write_csv(all_immune_markers_filtered, "../results/merged_censored_immune_markers.csv")
+
+```
+## Going back now and looking at distributions of data 
+- histograms/density plots to look at distributions
+- look for normality skewness, bimodality or multiple peaks, spikes at LOD values 
+
+```{r, fig.width=10, fig.height=5}
+
+(data_distribution <- all_immune_markers_filtered %>% 
+  ggplot(aes(x = calc_concentration_mean)) +
+    geom_histogram(aes(y=..density..), bins=30, fill="lightblue", color="black") +
+    geom_density(color="red", linewidth=1) +
+    facet_wrap(~immune_product, scales="free") +
+    theme_bw())
+
+```
+- these results show that the data is non-normal and has a strong right-tailed (positive) skew
+
+### looking at censoring (LOD issues)
+- see if a significant proportion of data are below or above assay limits of detection 
+- Note from searching online: If censoring is substantial (>10–20%), consider methods that explicitly handle censored data, such as Tobit regression or imputation methods (LOD/2, etc.).
+- for >20% censoring (10/20 cytokines) mixed-effects Tobit models can be used to model each cytokine longitudinally while accounting for censoring and within subjct correlations (look into censReg, survival::survreg, or glmmTMB packages)
+- regression on order-statistics (ROS) can also be used (in NADA package) - fits log-normal or other distribution ot uncensored data then imputes plausible values for censored ones (I don't really get how though)
+```{r}
+#not sure why this is coming up as all 0's
+LOD_percentages <- all_cyto %>% 
+  group_by(immune_product) %>% 
+  summarise(
+    total_n = n(), 
+    num_below_LOD = sum(calc_concentration_mean == Min/2, na.rm = TRUE),
+    num_above_LOD = sum(calc_concentration_mean == Max, na.rm = TRUE), 
+    percentage_below_LOD = (num_below_LOD / total_n) * 100, 
+    percentage_above_LOD = (num_above_LOD / total_n) * 100 
+  )
+```
+
+## Factoring values for lmer models
+```{r}
+
+all_immune_markers_factor <- all_immune_markers_filtered %>%
+  convert_as_factor(subject_id, treatment_group, new_visit_num) %>%
+  rename("calc_concentration" = "calc_concentration_mean")
+```
+
+## Trying lme4 for linear models with anova to compare models 
+
+```{r}
+immune_products <- unique(all_immune_markers_factor$immune_product)
+
+model_list <- vector("list", length(immune_products))
+anova_list <- vector("list", length(immune_products))
+
+for (i in seq_along(immune_products)) {
+  prod <- immune_products[i]
+  
+  tbl <- all_immune_markers_factor %>% 
+    filter(immune_product == prod)
+  
+  model_2 <- lmer(
+    calc_concentration ~ treatment_group * visit + (1|subject_id), 
+    data = tbl, 
+    REML = FALSE
+  )
+  
+  anova_1 <- anova(model_2, type = "III")
+  
+  model_list[[i]] <- model_2
+  anova_list[[i]] <- as.data.frame(anova_1) %>%
+    rownames_to_column(var = "Term") %>%
+    mutate(immune_product = prod)
+}
+
+# 4) Combine ANOVA tables into one data.frame
+all_anova_2 <- bind_rows(anova_list)
+
+all_summaries_2 <- purrr::map2_df(model_list, immune_products, function(mod, prod) {
+  coef_df <- as.data.frame(summary(mod)$coefficients) %>%
+    tibble::rownames_to_column("term") %>%
+    rename(
+      estimate  = `Estimate`,
+      std.error = `Std. Error`,
+      df        = `df`,
+      statistic = `t value`,
+      p.value   = `Pr(>|t|)`
+    ) %>%
+    mutate(immune_product = prod)
+})
+
+write.csv(all_summaries_2, "../data/cytokine_treatment_visit_lme4_model_summaries_rawdata.csv", row.names = FALSE)
+```
+- for all_summaries, intercept() will be the mean transformed concentration at the reference level (e.g. CRS_200mg at D1)
+- i honestly don't know how to interpret these SOS 
+
+```{r}
+# significant_transformed_visit_treatment_ints <- all_summaries %>% 
+#   filter(p.value <= 0.05)
+
+significant_raw_visit_treatment_ints <- all_summaries_2 %>% 
+  filter(p.value <= 0.05)
+```
+
+## Aligned Rank Transformed Linear Mixed Effect Models
+- I want to repeat what we did in cp_lf_plotting by: 
+  - vectorizing the variables we need
+  - writing a for loop that will perform the art_lmer_strat function on all the cytokines
+  - add a column for immune_product in the results and contrast outputs 
+  - rbind all results and contrasts together (can distinguish based on above column)
+  
+```{r}
+
+immune_products <- unique(all_immune_markers_factor$immune_product)
+
+results_list <- vector("list", length(immune_products))
+contrast_list <- vector("list", length(immune_products))
+
+for (i in seq_along(immune_products)) {
+  prod <- immune_products[i]
+  
+  tbl <- all_immune_markers_factor %>% 
+    filter(immune_product == prod)
+  
+  art_out <- art_lmer_strat(
+    input_table = tbl, 
+    strat_variable = "new_visit_num", 
+    model_formula_left = "calc_concentration",
+    model_formula_right = "treatment_group",
+    model_contrast_run_by = "treatment_group"
+  )
+  
+  results_list[[i]] <- art_out$ARTResults %>% 
+    mutate(immune_product = prod)
+  contrast_list[[i]] <- art_out$ARTContrast %>% 
+    mutate(immune_product = prod)
+}
+
+# bind them all together
+visit_strat_results <- bind_rows(results_list)
+visit_strat_contrast <- bind_rows(contrast_list)
+```
+
+would want to visualize contrast results as a heat map, but would want to calculate difference in the means to determine directionality 
+- use Madi's apppleplot package
+- need to put the contrast output into a specific format before running the heat map script 
+
+```{r, fig.width=8, fig.height=3}
+visit_strat_diff_means <- calc_diff_means(input_table = all_immune_markers_factor,
+                first_group = "treatment_group",
+                second_group = c("new_visit_num", "immune_product"),
+                mean_value = "calc_concentration",
+                post_hoc_test = visit_strat_contrast) %>% 
+  filter(signif != 'ns')
+
+visit_nums <- c('Screen',
+                  'D1',
+                  'D4',
+                  'TOC',
+                  'D17',
+                  'D40',
+                  'D70')
+names(visit_nums) <- c(1, 2, 3, 4, 5, 6, 7)
+ 
+
+(visit_strat_heat_plot <- stat_heat_plot(input_table = visit_strat_diff_means, 
+                                        x_value = 'group1',
+                                        y_value = 'group2',
+                                        x_value_type = 'discrete',
+                                        y_value_type = 'discrete',
+                                        pairwise = TRUE,
+                                        correlation = FALSE,
+                                        tile_fill = 'stat_diff_means',
+                                        text_value = 'signif',
+                                        legend_name = 'Group 1 -\n Group 2',
+                                        x_labels = c('CRS3123\n200mg',
+                                                     'CRS3123\n400mg'),
+                                        y_labels = c('CRS3123 400mg', 
+                                                     'Vancomycin 125mg'),
+                                        facet_by = 'new_visit_num',
+                                        facet_labels = visit_nums,
+                                        x_name = 'Group 1',
+                                        y_name = 'Group 2',
+                                        title_content = 'Pairwise Comparisons Between Treatment Groups') +
+  facet_grid(rows = vars(immune_product), cols = vars(new_visit_num), labeller = labeller(.cols = visit_nums)) +
+  labs(subtitle = "Visit"))
+        
+```
+interpretation of AML-lmer results: 
+- IL-10 is significantly higher at D1 in vanc vs. CRS 400mg (is this baseline, before or day of start of Abx?)
+- IL-12p40 is higher in CRS 400mg than 200mg at D4 (subunit of IL-12 and IL-23?)
+- IL-15 is higher in 400mg than 200mg at TOC and D40 (inducer of T and NK cells?)
+- IL-1b is higher in vanc than CRS 200mg at D4 (fecal cp was correlated with IL-1b in the HIV fecal sIF paper)
+- results were same whether I used transformed calc_concentration_means or not 
+
+```{r}
+ggsave("../plots/treatment_group_pairwise_heatmap.png", width = 8, height = 3)
+```
+
+ART-lmer where we stratify by treatment group and look at effect of day on calc_concentration_mean when accounting for random effects by subject
+```{r}
+
+immune_products <- unique(all_immune_markers_factor$immune_product)
+
+results_list <- vector("list", length(immune_products))
+contrast_list <- vector("list", length(immune_products))
+
+for (i in seq_along(immune_products)) {
+  prod <- immune_products[i]
+  
+  tbl <- all_immune_markers_factor %>% 
+    filter(immune_product == prod)
+  
+  art_out <- art_lmer_strat(
+    input_table = tbl, 
+    strat_variable = "treatment_group", 
+    model_formula_left = "calc_concentration",
+    model_formula_right = "new_visit_num + (1|subject_id)",
+    model_contrast_run_by = "new_visit_num"
+  )
+  
+  results_list[[i]] <- art_out$ARTResults %>% 
+    mutate(immune_product = prod)
+  contrast_list[[i]] <- art_out$ARTContrast %>% 
+    mutate(immune_product = prod)
+}
+
+# bind them all together
+treatment_strat_raw_results <- bind_rows(results_list) %>% 
+  rename(p.adj.signif = signif) 
+treatment_strat_raw_contrast <- bind_rows(contrast_list) %>% 
+  rename(p.adj.signif = signif) %>% 
+  mutate(y.position = case_when(
+    treatment_group == 'CRS3123_200mg_po_bid' ~ 1,
+    treatment_group == 'CRS3123_400mg_po_bid' ~ 1,
+    treatment_group == 'Vancomycin_125mg_po_qid' ~ 1), 
+    ## pulls the 'new_visit_num' off of the values in these cols so it matches the plot below 
+    group1 = gsub("new_visit_num*", "", group1),
+    group2 = gsub("new_visit_num*", "", group2)) 
+
+treatment_strat_significant_contrast <- treatment_strat_raw_contrast %>% 
+  filter(p.adj.signif != 'ns')
+```
+
+
+```{r, fig.width = 10, fig.height = 20}
+## renaming facet labels for treatment group and immune product
+## for treatment group
+treat_group_labs <- c('CRS3123 200mg',
+                      'CRS3123 400mg',
+                      'Vancomycin 125mg')
+names(treat_group_labs) <- c('CRS3123_200mg_po_bid',
+                             'CRS3123_400mg_po_bid',
+                             'Vancomycin_125mg_po_qid')
+
+## for immune product
+immune_prod_labs <- c('Calprotectin',
+                      'Lactotransferrin')
+names(immune_prod_labs) <- c('calprotectin',
+                             'lactotransferrin')
+
+## to rename the x-axis labels (for visit)
+## have to add breaks (aka tick marks) on the x axis so all visits can be labeled properly
+x_axis_breaks <- c(1, 2, 3, 4, 5, 6, 7)
+## the visit labels in order 
+visit_x_labs <- c('Screen',
+                  'D1',
+                  'D4',
+                  'TOC',
+                  'D17',
+                  'D40',
+                  'D70')
+
+cytokine_panel_1 <- all_immune_markers_factor %>% 
+  filter(immune_product == unique(cytokine_dfs$immune_product))
+
+proinflamm_panel_1 <- all_immune_markers_factor %>% 
+  filter(immune_product == unique(proinflamm_cytokine_dfs$immune_product))
+
+proinflamm_panel_1 %>% 
+  #filter(immune_product == "") %>% 
+  mutate(new_visit_num = as.numeric(new_visit_num)) %>% 
+  ggplot(aes(x = new_visit_num, y = calc_concentration)) + 
+  geom_boxplot(aes(group = new_visit_num), outlier.shape = NA) +
+  geom_smooth(se = FALSE) +
+  #geom_point(aes(fill = subject_id), size = 3, pch = 21) +
+  geom_point(size = 2, alpha = 0.4) + ## non-colored point plot
+  geom_line(aes(group = subject_id), alpha = 0.2) + 
+  facet_grid(immune_product ~ treatment_group,
+             scales = "free_y",
+             labeller = labeller(treatment_group = treat_group_labs,
+                                 immune_product = immune_prod_labs)) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(breaks = x_axis_breaks, labels = visit_x_labs) +
+  # stat_pvalue_manual(treatment_strat_contrast,
+  #                    step.group.by = "treatment_group",
+  #                    step.increase = 0.1,
+  #                    hide.ns = TRUE,
+  #                    label = 'p.adj.signif',
+  #                    y.position = 1) +
+  theme_bw(base_size = 14) +
+  theme(strip.text.y.right = element_text(angle = 0)) +
+  labs(x = 'Visit',
+       y = 'Mean Concentration (pg/mL)',
+       title = 'Immune Markers in Patients\' Fecal Water Over Time', 
+       subtitle = 'Proinflammatory Panel 1')
+```
+```{r}
+ggsave(filename = "../plots/proinflamm_cytokines_over_time_treatment.png", height = 20, width = 10)
+```
+
+
+```{r, fig.width = 12, fig.height = 15}
+cytokine_panel_1 %>% 
+  mutate(new_visit_num = as.numeric(new_visit_num)) %>%
+  ggplot(aes(x = new_visit_num, y = calc_concentration)) + 
+  geom_boxplot(aes(group = new_visit_num), outlier.shape = NA) +
+  geom_smooth(se = FALSE) +
+  #geom_point(aes(fill = subject_id), size = 3, pch = 21) +
+  geom_point(size = 2, alpha = 0.4) + ## non-colored point plot
+  geom_line(aes(group = subject_id), alpha = 0.2) + 
+  facet_grid(immune_product ~ treatment_group,
+             scales = "free_y",
+             labeller = labeller(treatment_group = treat_group_labs,
+                                 immune_product = immune_prod_labs)) +
+  scale_y_continuous(trans = "log10") +
+  #scale_x_discrete(labels = visit_x_labs) +
+  scale_x_continuous(breaks = x_axis_breaks, labels = visit_x_labs) +
+  # stat_pvalue_manual(treatment_strat_contrast,
+  #                    step.group.by = "treatment_group",
+  #                    step.increase = 0.1,
+  #                    hide.ns = TRUE,
+  #                    label = 'p.adj.signif',
+  #                    y.position = 1) +
+  theme_bw(base_size = 16) +
+  theme(strip.text.y.right = element_text(angle = 0)) +
+  labs(x = 'Visit',
+       y = 'Mean Concentration (pg/mL)',
+       title = 'Immune Markers in Patients\' Fecal Water Over Time', 
+       subtitle = 'Cytokine Panel 1')
+```
+
+```{r}
+ggsave("../plots/cytokines_over_time_plot.png", width = 10, height = 20)
+```
+
+
+
+

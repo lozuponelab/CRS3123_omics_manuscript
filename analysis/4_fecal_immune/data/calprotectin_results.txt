@@ -1,0 +1,240 @@
+subject_id	visit	calc_concentration_mean 	immune_product	Note 
+101-1001	Screening 	110091.21	calprotectin	
+101-1001	D4	591498.02	calprotectin	
+101-1001	FUV1 	74129.70	calprotectin	
+101-1001	FUV2 	83049.05	calprotectin	
+101-1001	FUV3 	134207.29	calprotectin	
+101-1001	FUV4 	50824.28	calprotectin	
+101-1002	D4	84235.62	calprotectin	
+101-1002	FUV1 	101505.24	calprotectin	
+101-1002	FUV1 	260388.00	calprotectin	
+101-1002	FUV3 	133169.88	calprotectin	
+101-1002	Unscheduled	126312.17	calprotectin	
+101-1002	FUV4 	253383.05	calprotectin	
+101-1003	Screening 	866118.37	calprotectin	
+101-1003	D1	326876.61	calprotectin	
+101-1003	D4	163870.77	calprotectin	
+101-1003	FUV1 	286750.02	calprotectin	
+101-1003	FUV2 	203590.57	calprotectin	
+101-1003	FUV3 	307932.53	calprotectin	
+101-1003	FUV4 	131837.61	calprotectin	
+110-1002	Screening 	33194402.99	calprotectin	
+110-1002	D4	4226639.80	calprotectin	
+110-1002	FUV1 	811013.41	calprotectin	
+110-1002	FUV2 	312734.16	calprotectin	
+110-1002	FUV3 	801991.19	calprotectin	
+110-1002	FUV4 	213817.84	calprotectin	
+110-1003	Screening 	16638615.25	calprotectin	
+110-1003	D1	28972184.68	calprotectin	
+110-1003	D4	471299.39	calprotectin	
+110-1003	FUV1 	121095.93	calprotectin	
+110-1003	FUV3 	76641.19	calprotectin	
+110-1003	FUV4 	160496.26	calprotectin	
+110-1004	Screening 	1161230.45	calprotectin	
+110-1004	D1	6587989.15	calprotectin	Received empty sample tube (no visible fecal sample received)
+110-1004	D4	1827128.72	calprotectin	
+110-1004	FUV1 	157534.42	calprotectin	
+110-1004	FUV2 	139331.27	calprotectin	
+110-1004	FUV3 	286186.66	calprotectin	
+110-1004	FUV4 	174170.87	calprotectin	
+110-1005	D1	360633.77	calprotectin	
+110-1005	D4	50287.28	calprotectin	
+110-1005	FUV1 	118386.87	calprotectin	
+110-1005	FUV2 	65942.77	calprotectin	
+110-1005	FUV3 	94764.42	calprotectin	
+110-1005	FUV4 	124741.56	calprotectin	
+114-1002	D1	141474.94	calprotectin	
+114-1002	D4	237978.93	calprotectin	
+114-1002	FUV1 	314133.49	calprotectin	
+114-1002	FUV2 	593302.38	calprotectin	
+114-1002	FUV3 	618735.92	calprotectin	
+114-1002	FUV4 	159623.88	calprotectin	
+114-1003	D1	1413395.01	calprotectin	
+114-1003	D4	785434.55	calprotectin	
+114-1003	FUV4 	2261386.45	calprotectin	
+114-1004	Screening 	23088861.60	calprotectin	
+114-1004	D1	22997859.44	calprotectin	
+114-1004	FUV1 	67982.97	calprotectin	
+114-1004	FUV2 	2979279.27	calprotectin	
+114-1004	FUV3 	965773.07	calprotectin	"CV is 26 (CV value is more than 20, it can be considered as less reliable). "
+114-1005	D1	2520735.79	calprotectin	
+114-1005	FUV1 	192779.62	calprotectin	
+114-1005	FUV2 	33515781.97	calprotectin	
+114-1005	FUV3 	316959.80	calprotectin	
+114-1005	FUV4 	103573.04	calprotectin	
+116-1001	D1	121216.24	calprotectin	
+116-1001	D4	190282.89	calprotectin	
+116-1001	Unscheduled	300819.59	calprotectin	
+116-1001	FUV3 	9169.67	calprotectin	"CV is 38 (CV value is more than 20, it can be considered as less reliable). "
+116-1001	FUV4 	52181.37	calprotectin	
+116-1002	D1	864268.84	calprotectin	
+116-1002	D4	574891.56	calprotectin	
+116-1002	FUV1 	653728.86	calprotectin	
+116-1002	FUV2 	163127.68	calprotectin	"CV is 29 (CV value is more than 20, it can be considered as less reliable). "
+116-1002	FUV3 	444344.36	calprotectin	
+116-1002	FUV4 	481188.32	calprotectin	
+116-1003	Screening 	892323.50	calprotectin	
+116-1003	D1	876440.84	calprotectin	
+116-1003	D4	191271.92	calprotectin	
+116-1003	FUV1 	218812.75	calprotectin	
+116-1003	FUV2 	559531.33	calprotectin	
+116-1003	Unscheduled	268440.99	calprotectin	
+116-1003	FUV3 	410207.05	calprotectin	
+116-1003	FUV4 	406602.62	calprotectin	
+116-1004	Screening 	15157646.83	calprotectin	
+116-1004	D1	28368892.21	calprotectin	"CV is 21 (CV value is more than 20, it can be considered as less reliable). "
+116-1004	D4	65342651.26	calprotectin	
+116-1004	FUV1 	314802.54	calprotectin	
+116-1004	FUV2 	319033.38	calprotectin	
+116-1004	FUV3 	212963.89	calprotectin	
+116-1004	FUV4 	353127.99	calprotectin	
+116-1006	Screening 	369343.67	calprotectin	
+116-1006	FUV1 	126228.78	calprotectin	
+116-1006	FUV2 	192902.05	calprotectin	
+116-1006	Unscheduled	169742.50	calprotectin	
+116-1007	Screening 	1219580.31	calprotectin	
+116-1007	D1	7791517.31	calprotectin	
+116-1007	FUV1 	45436.72	calprotectin	
+116-1007	FUV2 	41272.30	calprotectin	
+116-1008	Screening 	176732.60	calprotectin	"CV is 21 (CV value is more than 20, it can be considered as less reliable). "
+116-1008	FUV1 	93834.88	calprotectin	
+116-1008	FUV2 	157701.67	calprotectin	
+116-1009	Screening 	37373.35	calprotectin	
+116-1009	D1	850159.94	calprotectin	
+116-1009	FUV1 	83850.97	calprotectin	
+116-1009	FUV2 	51216.18	calprotectin	
+116-1010	D1	69016914.24	calprotectin	
+116-1010	FUV1 	19829.58	calprotectin	
+116-1010	FUV2 	44439.86	calprotectin	
+116-1011	Screening 	10617880.80	calprotectin	
+116-1011	D1	646510.44	calprotectin	
+116-1011	FUV1 	217287.83	calprotectin	
+116-1011	FUV2 	115202.05	calprotectin	
+116-1012	D1	54365400.74	calprotectin	
+116-1012	FUV1 	279289.10	calprotectin	
+116-1012	FUV2 	198807.29	calprotectin	
+117-1945	Screening 	235590.30	calprotectin	
+117-1945	D1	424149.03	calprotectin	
+117-1945	D4	463653.42	calprotectin	
+117-1945	FUV1 	1862389.00	calprotectin	
+117-1945	FUV2 	1448635.72	calprotectin	
+117-1945	FUV3 	2403452.21	calprotectin	
+117-1945	FUV4 	2069643.01	calprotectin	
+120-2201	Screening 	743230.11	calprotectin	
+120-2201	D1	678405.99	calprotectin	
+120-2201	D4	1146738.70	calprotectin	
+120-2201	FUV1 	190145.23	calprotectin	"CV is 37 (CV value is more than 20, it can be considered as less reliable). "
+120-2201	FUV2 	698510.45	calprotectin	
+120-2201	FUV3 	225533.80	calprotectin	"CV is 27 (CV value is more than 20, it can be considered as less reliable). "
+120-2201	FUV4 	205353.91	calprotectin	
+120-2203	Screening 	233522.45	calprotectin	
+120-2203	D1	559775.78	calprotectin	
+120-2203	D4	386281.88	calprotectin	
+120-2203	FUV1 	91506.46	calprotectin	
+120-2203	FUV2 	94398.05	calprotectin	
+120-2203	Unscheduled	294606.71	calprotectin	
+120-2203	FUV3 	367165.63	calprotectin	
+120-2203	FUV4 	94652.16	calprotectin	
+120-2204	Screening 	45422386.81	calprotectin	
+120-2204	D1	19981588.44	calprotectin	
+120-2204	FUV1 	263211.94	calprotectin	
+120-2204	Unscheduled	43344907.93	calprotectin	
+120-2204	FUV2 	405303.16	calprotectin	
+120-2205	D1	7823421.49	calprotectin	
+120-2205	FUV1 	203633.48	calprotectin	
+120-2205	Unscheduled	9344639.67	calprotectin	
+120-2205	FUV2 	216923.12	calprotectin	
+122-1001	Screening 	533974.46	calprotectin	
+122-1001	D1	746679.47	calprotectin	
+122-1001	FUV1 	121656.99	calprotectin	
+122-1001	FUV2 	65263.54	calprotectin	
+122-1001	FUV3 	143226.89	calprotectin	
+122-1001	FUV4 	48643.01	calprotectin	"CV is 35 (CV value is more than 20, it can be considered as less reliable). "
+122-1002	Screening 	1430120.46	calprotectin	
+122-1002	D1	759362.99	calprotectin	
+122-1002	D4	2433069.31	calprotectin	
+122-1002	FUV1 	75562.40	calprotectin	"CV is 32 (CV value is more than 20, it can be considered as less reliable). "
+122-1002	FUV2 	123072.15	calprotectin	"CV is 21 (CV value is more than 20, it can be considered as less reliable). "
+122-1002	FUV3 	16148.08	calprotectin	"CV is 43 (CV value is more than 20, it can be considered as less reliable). "
+122-1002	FUV4 	63513.75	calprotectin	
+122-1003	Screening 	30769.01	calprotectin	"CV is 41 (CV value is more than 20, it can be considered as less reliable). "
+122-1003	D1	44567.04	calprotectin	
+122-1003	D4	226175.73	calprotectin	"CV is 29 (CV value is more than 20, it can be considered as less reliable). "
+122-1003	FUV1 	161337.54	calprotectin	
+122-1003	FUV2 	62083.31	calprotectin	
+122-1003	FUV3 	91554.44	calprotectin	
+122-1003	FUV4 	372791.65	calprotectin	
+123-1001	Screening 	1537439.24	calprotectin	
+123-1001	D1	1644334.38	calprotectin	
+123-1001	D4	944144.63	calprotectin	
+123-1001	FUV1 	611719.08	calprotectin	
+123-1001	FUV2 	818203.24	calprotectin	
+123-1001	FUV3 	127461.47	calprotectin	
+123-1001	FUV4 	730931.13	calprotectin	
+128-1001	Screening 	3873594.97	calprotectin	"CV is 95 (CV value is more than 20, it can be considered as less reliable). "
+128-1001	D1	577016.66	calprotectin	
+128-1001	D4	189918.28	calprotectin	
+128-1001	FUV1 	109081.87	calprotectin	
+128-1001	Unscheduled	725555.01	calprotectin	
+128-1001	FUV3 	1524509.06	calprotectin	
+128-1001	FUV4 	365052.97	calprotectin	
+128-1002	Screening 	127357.86	calprotectin	
+128-1002	D1	449875.87	calprotectin	"CV is 23 (CV value is more than 20, it can be considered as less reliable). "
+128-1002	D4	294495.72	calprotectin	
+128-1002	FUV2 	244415.24	calprotectin	
+128-1002	FUV3 	904382.03	calprotectin	
+128-1002	FUV4 	640985.67	calprotectin	
+130-1001	D4	1022552.33	calprotectin	
+130-1001	FUV1 	547596.42	calprotectin	
+130-1001	FUV2 	163790.67	calprotectin	
+130-1001	FUV3 	442881.71	calprotectin	
+130-1001	FUV4 	117579.21	calprotectin	
+131-1001	Screening 	264175.37	calprotectin	
+131-1001	D1	387772.72	calprotectin	"CV is 24 (CV value is more than 20, it can be considered as less reliable). "
+131-1001	D4	621385.46	calprotectin	
+139-1001	D1	1257064.82	calprotectin	"CV is 30 (CV value is more than 20, it can be considered as less reliable). "
+139-1001	D4	357625.74	calprotectin	
+139-1001	FUV1 	544031.66	calprotectin	"CV is 53 (CV value is more than 20, it can be considered as less reliable). "
+139-1001	FUV2	247908.36	calprotectin	
+139-1001	Unscheduled	333642.69	calprotectin	"CV is 36 (CV value is more than 20, it can be considered as less reliable). "
+139-1001	FUV3 	126812.04	calprotectin	
+139-1001	FUV4 	27637.30	calprotectin	
+139-1002	D1	152262.06	calprotectin	
+139-1002	D4	357839.41	calprotectin	
+139-1002	FUV1 	244041.16	calprotectin	
+139-1002	FUV2	290919.94	calprotectin	
+139-1002	FUV3 	915333.84	calprotectin	
+139-1002	FUV4 	389840.18	calprotectin	
+140-1002	D4	28951.92	calprotectin	
+140-1002	FUV1 	197430.23	calprotectin	
+140-1002	FUV2	319670.50	calprotectin	
+140-1002	FUV4 	55695.48	calprotectin	
+140-1003	D4	20183716.21	calprotectin	"CV is 26 (CV value is more than 20, it can be considered as less reliable). "
+146-1001	Screening 	4761949.55	calprotectin	"CV is 55 (CV value is more than 20, it can be considered as less reliable). "
+146-1001	D1	221021.27	calprotectin	
+146-1001	D4	361611.62	calprotectin	
+146-1001	FUV1 	633596.65	calprotectin	
+146-1001	FUV2	560977.66	calprotectin	
+146-1001	FUV3 	407858.27	calprotectin	
+146-1001	FUV4 	313302.60	calprotectin	
+146-1002	Screening 	542061.06	calprotectin	
+146-1002	D1	979336.02	calprotectin	
+146-1002	D4	712915.18	calprotectin	
+146-1002	FUV1 	626910.92	calprotectin	
+146-1002	FUV2	491673.36	calprotectin	
+146-1002	FUV3 	999447.92	calprotectin	
+146-1002	FUV4 	186966.05	calprotectin	
+146-1003	Screening 	55040.58	calprotectin	
+146-1003	D1	87833.75	calprotectin	
+146-1003	D4	143837.51	calprotectin	
+146-1003	FUV1 	136012.38	calprotectin	
+146-1003	FUV2	87548.40	calprotectin	"CV is 47 (CV value is more than 20, it can be considered as less reliable). "
+146-1003	FUV3 	74649.44	calprotectin	
+146-1003	FUV4 	54843.87	calprotectin	"CV is 80 (CV value is more than 20, it can be considered as less reliable). "
+146-1004	Screening 	39325.14	calprotectin	
+146-1004	D1	92184.77	calprotectin	"CV is 68 (CV value is more than 20, it can be considered as less reliable). "
+146-1004	D4	125220.22	calprotectin	
+146-1004	FUV1 	150608.66	calprotectin	
+146-1004	FUV2	372195.27	calprotectin	
+146-1004	FUV3 	50360.08	calprotectin	"CV is 45 (CV value is more than 20, it can be considered as less reliable). "
+146-1004	FUV4 	30607.51	calprotectin	

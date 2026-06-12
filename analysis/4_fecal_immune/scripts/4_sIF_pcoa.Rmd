@@ -1,0 +1,712 @@
+---
+title: "sIF_pcoa"
+author: "Laurie Lyon"
+date: "2025-08-25"
+output: html_document
+---
+Goal: create feature table and metadata to put into QIIME2 to create PCoA plots for fecal water sIF
+- see Littlefield et al. 2022 Frontiers Imm. paper Figure 3 
+
+```{r}
+library(tidyverse)
+library(readr)
+library(vegan)
+library(ape) #for pcoa
+library(ggrepel)
+theme_set(theme_bw(base_size = 12))
+set.seed(1)
+library(viridis)
+```
+## read in table
+can use any .csv that has been censored for LLOD and ULOD 
+(consider looking into Brandie's methods for imputing below LLOD to help with data distribution)
+
+```{r}
+sif_long <- read_csv("../results/merged_censored_immune_markers.csv")
+```
+
+## pivot long to wide
+- starting with just all time points together, consider filtering by time point first later?
+- I think there's one duplicate (calprotectin 101-1002.4), so adding values_fn to take mean of duplicates)
+
+```{r}
+sif_wide <- sif_long %>% 
+  #filter(new_visit_label == "D10-15/TOC") %>% # could filter for single day
+  dplyr::select(sampleid, immune_product, calc_concentration_mean) %>% 
+  group_by(sampleid, immune_product) %>% 
+  pivot_wider(names_from = immune_product, 
+              values_from = calc_concentration_mean, 
+              values_fn = mean)
+```
+
+## metadata
+- could add other things but just keeping the basics here
+- other clinical metadata could be helpful
+- using the distinct dplyr function to make sure we only have one set of metadata per sample (needs the input list of columns to check)
+
+```{r}
+meta_cols <- c("sampleid","subject_id","treatment_group","new_visit_label","new_visit_num")
+sample_metadata <- sif_long %>% 
+  distinct(across(all_of(meta_cols))) %>% 
+  mutate(abx_time = case_when(
+    new_visit_num %in% c(1, 2) ~ "Screen, D1",
+    new_visit_num %in% c(3) ~ "D4",
+    new_visit_num %in% c(4) ~ "TOC",
+    new_visit_num %in% c(5, 6, 7) ~ "D17, D40, D70", 
+    .default = NA
+  ) 
+         )
+```
+
+## normalize
+- divide each individual value by the mean value of that sIF across all samples
+- across() applies same transformation to multiple columns (-sampleid to ignore that column)
+  - -sampleid was causing an error so changed to where(is.numeric)
+- purrr-function mean(.x, na.rm - TRUE) calculates mean of current column, ignoring NAs
+- so .x / mean(.x, na.rm = TRUE) divides each value in the current column by that overall mean value (for unit testing, mean of each column should = 1)
+
+## consider normalizing like relative abundance but for each cytokine
+
+```{r}
+sif_norm_median <- sif_wide %>% 
+  ungroup() %>% 
+  mutate(across(where(is.numeric), #perform only on columns with numeric values (not sampleid)
+                ~ .x / median(.x, na.rm = TRUE))) %>% #divide value by column mean
+  na.omit()
+```
+
+## write .tsv
+```{r}
+write_tsv(sif_norm_median, "../data/sif_norm_median_table.tsv")
+write_tsv(sample_metadata, "../data/sif_sample_metadata.tsv")
+```
+
+## wrangling tables to input into canberra 
+```{r}
+#look for common ids between meta and sif concentrations
+common_ids <- intersect(sif_norm_median$sampleid, sample_metadata$sampleid)
+
+sif_filt_aligned <- sif_norm_median %>% 
+  filter(sampleid %in% common_ids) %>% 
+  arrange(match(sampleid, common_ids))
+
+meta_filt_aligned <- sample_metadata %>% 
+  filter(sampleid %in% common_ids) %>% 
+  arrange(match(sampleid, common_ids))
+
+#sanity check to make sure sampleids match
+stopifnot(identical(sif_filt_aligned$sampleid, meta_filt_aligned$sampleid))
+
+#something is going on with select in my environment so I have to specify dplyr
+#need to remove the non-numeric column (sampleid) before converting to matrix
+sif_nosampleid <- sif_filt_aligned %>% 
+  dplyr::select(-sampleid)
+
+#convert to matrix and put sampleid back as rownames 
+sif_matrix <- as.matrix(sif_nosampleid)
+rownames(sif_matrix) <- sif_filt_aligned$sampleid
+```
+
+```{r}
+sif_dist <- vegdist(sif_matrix, method = "canberra")
+
+sif_pcoa <- ape::pcoa(sif_dist)
+
+pct <- round(100 * sif_pcoa$values$Relative_eig[1:3], 2)
+
+# assemble sample coodinates with metadata
+sif_pcoa_coords <- as_tibble(sif_pcoa$vectors[, 1:3], .name_repair = "minimal") %>%
+  setNames(c("PC1","PC2","PC3")) %>%
+  mutate(sampleid = rownames(sif_pcoa$vectors)) %>%
+  left_join(meta_filt_aligned, by = "sampleid")
+
+```
+
+```{r}
+#treatment groups
+treatments <- sort(unique(sif_pcoa_coords$treatment_group))
+
+# # ordination subspaces for envfit
+# ord_1_2 <- as.data.frame(sif_pcoa$vectors[, 1:2])
+# colnames(ord_1_2) <- c("Axis.1","Axis.2")
+# rownames(ord_1_2) <- rownames(sif_matrix)
+# 
+# ord_2_3 <- as.data.frame(sif_pcoa$vectors[, 2:3])
+# colnames(ord_2_3) <- c("Axis.2","Axis.3")
+# rownames(ord_2_3) <- rownames(sif_matrix)
+
+# % variance for axis labels
+pct <- round(100 * sif_pcoa$values$Relative_eig[1:3], 2)
+pc1_lab <- paste0("PC1 (", pct[1], "%)")
+pc2_lab <- paste0("PC2 (", pct[2], "%)")
+pc3_lab <- paste0("PC3 (", pct[3], "%)")
+
+# #empty list for combining later
+# envfit_list_1_2 <- list()  # per-treatment cytokine vectors for PC1-PC2
+# envfit_list_2_3 <- list()  # per-treatment cytokine vectors for PC2-PC3
+# 
+# #run envfit separately on each group 
+# for (trt in treatments) {
+#   #get sample IDs per treatment
+#   ids_trt <- sif_pcoa_coords %>% 
+#     filter(treatment_group == trt) %>% 
+#     pull(sampleid)
+#   #subset ordination plane rows to only those sample IDs
+#   ord_1_2_sub <- ord_1_2[ids_trt, , drop = FALSE]
+#   ord_2_3_sub <- ord_2_3[ids_trt, , drop = FALSE]
+#   #subset cytokine matrix rows for those samples
+#   env_sub <- as.data.frame(sif_matrix[ids_trt, , drop = FALSE])
+#   #run envfit for that treatment for each plane 
+#   ef_1_2_trt <- vegan::envfit(
+#     ord = ord_1_2_sub,
+#     env = env_sub,
+#     permutations = 999
+#   )
+#   ef_2_3_trt <- vegan::envfit(
+#     ord = ord_2_3_sub,
+#     env = env_sub,
+#     permutations = 999
+#   )
+#   #extract vectors for PC1_2
+#   vec_raw_1_2 <- as.data.frame(scores(ef_1_2_trt, display = "vectors"))
+#   colnames(vec_raw_1_2)[1:2] <- c("Axis.1","Axis.2")
+#   #make tibble
+#   vec_tbl_1_2 <- vec_raw_1_2 %>%
+#     rownames_to_column("Cytokine") %>%
+#     as_tibble() %>%
+#     mutate(
+#       r2   = (ef_1_2_trt$vectors$r)^2,
+#       pval = ef_1_2_trt$vectors$pvals,
+#       padj = p.adjust(pval, method = "BH"),
+#       treatment_group = trt
+#     ) %>%
+#     arrange(padj, desc(r2))
+#   #select significant vectors 
+#   vec_sig_1_2 <- vec_tbl_1_2 %>% 
+#     filter(padj <= 0.05)
+#   
+#   #extract vectors for PC2_3
+#   vec_raw_2_3 <- as.data.frame(scores(ef_2_3_trt, display = "vectors"))
+#   colnames(vec_raw_2_3)[1:2] <- c("Axis.2","Axis.3")
+#   #make tibble
+#   vec_tbl_2_3 <- vec_raw_2_3 %>%
+#     rownames_to_column("Cytokine") %>%
+#     as_tibble() %>%
+#     mutate(
+#       r2   = (ef_2_3_trt$vectors$r)^2,
+#       pval = ef_2_3_trt$vectors$pvals,
+#       padj = p.adjust(pval, method = "BH"),
+#       treatment_group = trt
+#     ) %>%
+#     arrange(padj, desc(r2))
+#   #select significant vectors 
+#   vec_sig_2_3 <- vec_tbl_2_3 %>% 
+#     filter(padj <= 0.05)
+#   
+#   #store results 
+#   envfit_list_1_2[[trt]] <- vec_sig_1_2
+#   envfit_list_2_3[[trt]] <- vec_sig_2_3
+# }
+# 
+# #combine all treatment-specific arrows into long dfs
+# all_arrows_1_2 <- bind_rows(envfit_list_1_2)
+# all_arrows_2_3 <- bind_rows(envfit_list_2_3)
+
+#code that I used for single plot not splitting by treatment (used to make function above)
+# Create a 3-axis ordination data frame for envfit
+ord3 <- as.data.frame(sif_pcoa$vectors[, 1:3])
+colnames(ord3) <- c("Axis.1","Axis.2","Axis.3")
+rownames(ord3) <- rownames(sif_matrix)
+
+# % variance for axis labels
+pct <- round(100 * sif_pcoa$values$Relative_eig[1:3], 2)
+pc1_lab <- paste0("PC1 (", pct[1], "%)")
+pc2_lab <- paste0("PC2 (", pct[2], "%)")
+pc3_lab <- paste0("PC3 (", pct[3], "%)")
+
+#PC1_PC2
+# Fit cytokines as vectors (correlations with axes) with envfit
+ef1_2 <- vegan::envfit(ord = as.matrix(ord3),
+                     env = as.data.frame(sif_matrix),
+                     permutations = 999,
+                     choices = 1:2)
+
+# extract vector coordinates
+vec_raw_1_2 <- as.data.frame(scores(ef1_2,
+                                display = "vectors",
+                                choices = 1:2))
+
+# now we have vectors (correlations of each cytokine with the ordination axis) and pvals for significance
+# r2 is how well each cytokine aligns with that axis
+# permutation test determines signficance
+vec_tbl_1_2 <- vec_raw_1_2 %>%
+  rownames_to_column("Cytokine") %>%
+  as_tibble() %>%
+  mutate(
+    r2   = (ef1_2$vectors$r)^2,
+    pval = ef1_2$vectors$pvals,
+    padj = p.adjust(pval, method = "BH")
+  ) %>%
+  arrange(padj, desc(r2))
+
+##PC2_PC3
+# Fit cytokines as vectors (correlations with axes) with envfit
+ef2_3 <- vegan::envfit(ord = as.matrix(ord3),
+                     env = as.data.frame(sif_matrix),
+                     permutations = 9999,
+                     choices = 2:3)
+
+# extract vector coordinates
+vec_raw_2_3 <- as.data.frame(scores(ef2_3,
+                                display = "vectors",
+                                choices = 1:2)) #1:2 because I already selected 2:3 in the last step
+
+# now we have vectors (correlations of each cytokine with the ordination axis) and pvals for significance
+# r2 is how well each cytokine aligns with that axis
+# permutation test determines signficance
+vec_tbl_2_3 <- vec_raw_2_3 %>%
+  rownames_to_column("Cytokine") %>%
+  as_tibble() %>%
+  mutate(
+    r2   = (ef2_3$vectors$r)^2,
+    pval = ef2_3$vectors$pvals,
+    padj = p.adjust(pval, method = "BH")
+  ) %>%
+  arrange(padj, desc(r2))
+
+#pick significant cytokines to graph
+vec_sig_1_2 <- vec_tbl_1_2 %>%
+  filter(padj <= 0.05)
+
+vec_sig_2_3 <- vec_tbl_2_3 %>%
+  filter(padj <= 0.05)
+
+top_vec_1_2 <- vec_sig_1_2 %>% 
+  head(10)
+  
+top_vec_2_3 <- vec_sig_2_3 %>% 
+  head(10)
+```
+
+**graphing**
+```{r, fig.width=18, fig.height=5}
+sif_pcoa_coords <- sif_pcoa_coords %>%
+  arrange(subject_id, new_visit_num)
+
+arrow_scale_1_2 <- 1.5 * min(
+  diff(range(sif_pcoa_coords$PC1)),
+  diff(range(sif_pcoa_coords$PC2))
+)
+
+arrows_1_2 <- top_vec_1_2 %>%
+  transmute(
+    Cytokine,
+    x0 = 0,
+    y0 = 0,
+    x1 = Axis.1 * arrow_scale_1_2,
+    y1 = Axis.2 * arrow_scale_1_2,
+    r2,
+    padj
+  )
+# plot_arrows_1_2 <- all_arrows_1_2 %>%
+#   mutate(
+#     x0 = 0,
+#     y0 = 0,
+#     x1 = Axis.1 * arrow_scale_1_2,
+#     y1 = Axis.2 * arrow_scale_1_2
+#   )
+
+#more explicity define the color palette to match other figures
+abx_levels <- c("Screen, D1", "D4", "TOC", "D17, D40, D70")
+
+# generate the actual colors once, from viridis
+abx_palette <- viridis(
+  n = length(abx_levels),
+  option = "C",
+  begin = 0,
+  end = 0.95
+)
+names(abx_palette) <- abx_levels
+
+(p_pc1_pc2_facet <- ggplot(
+  sif_pcoa_coords, 
+  aes(x = PC1, y = PC2)) +
+  # geom_path(
+  #   data = sif_pcoa_coords,
+  #   aes(x = PC1, y = PC2,
+  #       group = subject_id,
+  #       color = abx_time
+  #       ),
+  #   alpha = 0.4,
+  #   linewidth = 0.6
+  # ) +
+    # focal samples for each panel (will be re-filtered per facet below)
+  geom_point(
+    aes(fill = abx_time),
+    shape = 21,
+    size = 3,
+    alpha = 0.6
+  ) +
+  stat_ellipse(
+    aes(color = abx_time),
+    type = "t",
+    level = 0.95,
+    linewidth = 1, 
+    fill = NA
+  ) +
+  scale_fill_manual(
+    values = abx_palette,
+    breaks = abx_levels,
+    name = "Time Relative to Abx"
+  ) +
+  scale_color_manual(
+    values = abx_palette,
+    breaks = abx_levels,
+    name = "Time Relative to Abx"
+  ) +
+  #cytokine arrows
+  geom_segment(
+    data = arrows_1_2,
+    aes(x = x0, y = y0, xend = x1, yend = y1),
+    arrow = arrow(length = unit(0.2, "cm")),
+    linewidth = 0.3,
+    color = "black"
+  ) +
+  # cytokine labels
+  geom_text_repel(
+    data = arrows_1_2,
+    aes(x = x1, y = y1, label = Cytokine),
+    size = 5,
+    color = "black",
+    max.overlaps = 200, 
+    fontface = "bold", 
+    direction = "both"
+  ) +
+  facet_wrap(~ treatment_group, 
+             labeller = labeller(
+              treatment_group = c(
+                "CRS3123_200mg_po_bid" = "CRS3123 200mg",
+                "CRS3123_400mg_po_bid" = "CRS3123 400mg",
+                "Vancomycin_125mg_po_qid" = "Vancomycin 125mg"))) +
+  labs(
+    title = "Inflammatory Marker Profiles from Fecal Water",
+    x = pc1_lab,
+    y = pc2_lab,
+    color = "Time Relative to Abx"
+  ) +
+  guides(
+    fill  = guide_legend(override.aes = list(shape = 21, alpha = 0.8, color = "grey30")),
+    color = guide_legend(override.aes = list(linewidth = 1)) 
+    ) +
+  theme_bw(base_size = 16))
+
+arrow_scale_2_3 <- 0.9 * min(
+  diff(range(sif_pcoa_coords$PC2)),
+  diff(range(sif_pcoa_coords$PC3))
+)
+
+arrows_2_3 <- top_vec_2_3 %>%
+  mutate(
+    x0 = 0,
+    y0 = 0,
+    x1 = Axis.2 * arrow_scale_2_3,
+    y1 = Axis.3 * arrow_scale_2_3
+  )
+
+(p_pc2_pc3_facet <- ggplot() +
+  geom_point(
+    data = sif_pcoa_coords,
+    aes(x = PC2, y = PC3,
+        color = abx_time),
+    size = 2.3,
+    alpha = 0.9
+  ) +
+  scale_shape_manual(values = c(21,24)) +
+  stat_ellipse(
+    data = sif_pcoa_coords,
+    aes(x = PC2, y= PC3, color = abx_time, fill = abx_time),
+    type = "t",
+    level = 0.95,
+    geom = "polygon",
+    alpha = 0.1,
+    linewidth = 1
+  ) +
+  # treatment-specific cytokine arrows
+  geom_segment(
+    data = arrows_2_3,
+    aes(x = x0, y = y0, xend = x1, yend = y1),
+    arrow = arrow(length = unit(0.22, "cm")),
+    linewidth = 0.5,
+    color = "black"
+  ) +
+  # cytokine labels
+  geom_text_repel(
+    data = arrows_2_3,
+    aes(x = x1, y = y1, label = Cytokine),
+    size = 4,
+    color = "black",
+    max.overlaps = 200, 
+    fontface = "bold", 
+    direction = "both"
+  ) +
+  facet_wrap(~ treatment_group, 
+             labeller = labeller(
+              treatment_group = c(
+                "CRS3123_200mg_po_bid" = "CRS3123 200mg",
+                "CRS3123_400mg_po_bid" = "CRS3123 400mg",
+                "Vancomycin_125mg_po_qid" = "Vancomycin 125mg"))) +
+  labs(
+    title = "PCoA Canberra (PC2 vs PC3)",
+    x = pc2_lab,
+    y = pc3_lab,
+    color = "Time Relative to Abx"
+  ) +
+  theme_bw(base_size = 16))
+```
+
+```{r}
+ggsave("../plots/sIF_pcoa.pdf", p_pc1_pc2_facet, width = 18, height = 5.5)
+ggsave("../plots/sIF_pcoa.png", p_pc1_pc2_facet, width = 18, height = 5.5)
+save(p_pc1_pc2_facet, file = "../../../figures/fig7a_sif_pcoa.rdat")
+```
+
+## 9-5-25
+adding on to this script to transform this table back to long and run LMMs
+# wide back to long 
+```{r}
+# taking the transformed wide data frame back to long 
+sif_norm_long <- sif_norm_median %>%
+  pivot_longer(
+    cols = -sampleid, #gather all columns except sampleid
+    names_to = "immune_product", # new column for immune factors
+    values_to = "normed_conc" # The new column for their values
+  )
+
+#merge with metadata again 
+sif_norm_full <- sif_norm_long %>% 
+  left_join(sample_metadata, by = "sampleid")
+```
+
+```{r}
+write_tsv(sif_norm_full, "../data/sif_norm_long_w_metadata.tsv")
+```
+
+**adonis on dist matrix**
+```{r}
+#with all samples
+meta_filt_aligned$new_visit_label <- factor(
+  meta_filt_aligned$new_visit_label,
+  levels = c("Screen","D1","D4","D10-15/TOC","D17","D40","D70")
+)
+
+sif_adonis <- adonis2(sif_dist ~ new_visit_label + treatment_group,
+                      data = meta_filt_aligned, 
+                      permutations = 999, 
+                      strata = meta_filt_aligned$subject_id,  
+                      by = "margin")
+```
+
+```{r}
+#with only visits that happen once the antibiotic is given
+post_abx_visits <- c("D4", "D10-15/TOC", "D17", "D40", "D70")
+
+meta_post_abx <- meta_filt_aligned %>% 
+  filter(new_visit_label %in% post_abx_visits)
+
+#sample labels from the distance object
+dist_labels <- attr(sif_dist, "Labels")
+
+# Keep only samples that are in both the distance matrix and post-treatment metadata
+meta_post_abx <- meta_post_abx %>%
+  filter(sampleid %in% dist_labels) %>%
+  arrange(match(sampleid, dist_labels))
+
+# Indices of these samples in the distance matrix
+keep_idx <- dist_labels %in% meta_post_abx$sampleid
+
+# Subset the distance matrix
+sif_dist_post <- as.dist(as.matrix(sif_dist)[keep_idx, keep_idx])
+
+# quick sanity check
+stopifnot(length(sif_dist_post) > 0)
+
+sif_postabx_adonis <- adonis2(sif_dist_post ~ new_visit_label + treatment_group,
+                      data = meta_post_abx, 
+                      permutations = 999, 
+                      strata = meta_post_abx$subject_id,  
+                      by = "margin")
+
+sif_postabx_adonis
+```
+
+Pairwise PERMANOVA
+- wrangle - get labels, reorder metadata
+- did this for the data with all timepoints and everything is significant (I think because of baseline Screen+D1 differences)
+- trying with only the post-abx timepoints
+
+```{r}
+#sample labels from the distance object
+dist_labels <- attr(sif_dist, "Labels")
+
+#reorder metadata to match sif_dist order if it's not
+meta_filt_aligned2 <- meta_filt_aligned %>%
+  filter(sampleid %in% dist_labels) %>%
+  arrange(match(sampleid, dist_labels))
+
+meta_filt_aligned2$treatment_group <- factor(meta_filt_aligned2$treatment_group)
+meta_filt_aligned2$subject_id      <- factor(meta_filt_aligned2$subject_id)
+
+#check for treatment names
+levels(meta_filt_aligned2$treatment_group)
+
+```
+
+CRS200 vs. 400 pairwise
+```{r}
+t1 <- "CRS3123_200mg_po_bid"
+t2 <- "CRS3123_400mg_po_bid"
+
+sub_meta <- meta_filt_aligned2 %>%
+  filter(treatment_group %in% c(t1, t2))
+
+# indices into the distance matrix using dist_labels
+keep_ids <- sub_meta$sampleid
+idx      <- dist_labels %in% keep_ids
+
+sub_dist <- as.dist(as.matrix(sif_dist)[idx, idx])
+
+res_200_vs_400 <- adonis2(
+  sub_dist ~ new_visit_label + treatment_group,
+  data        = sub_meta,
+  permutations = 999,
+  strata       = sub_meta$subject_id, 
+  by = "margin"
+)
+
+res_200_vs_400
+```
+```{r}
+t1 <- "CRS3123_200mg_po_bid"
+t3 <- "Vancomycin_125mg_po_qid"
+
+sub_meta <- meta_filt_aligned2 %>%
+  filter(treatment_group %in% c(t1, t3))
+
+keep_ids <- sub_meta$sampleid
+idx      <- dist_labels %in% keep_ids
+
+sub_dist <- as.dist(as.matrix(sif_dist)[idx, idx])
+
+res_200_vs_vanc <- adonis2(
+  sub_dist ~ new_visit_label + treatment_group,
+  data        = sub_meta,
+  permutations = 999,
+  strata       = sub_meta$subject_id, 
+  by = "margin"
+)
+
+res_200_vs_vanc
+```
+
+```{r}
+t2 <- "CRS3123_400mg_po_bid"
+t3 <- "Vancomycin_125mg_po_qid"
+
+sub_meta <- meta_filt_aligned2 %>%
+  filter(treatment_group %in% c(t2, t3))
+
+keep_ids <- sub_meta$sampleid
+idx      <- dist_labels %in% keep_ids
+
+sub_dist <- as.dist(as.matrix(sif_dist)[idx, idx])
+
+res_400_vs_vanc <- adonis2(
+  sub_dist ~ new_visit_label + treatment_group,
+  data        = sub_meta,
+  permutations = 999,
+  strata       = sub_meta$subject_id, 
+  by = "margin"
+)
+
+res_400_vs_vanc
+```
+
+only want to look at post abx (not screen and D1)
+function for the pairwise written by ChatGPT 5.1 11-18-25
+```{r}
+post_visits <- c("D4", "D10-15/TOC", "D17", "D40", "D70")
+
+meta_post_abx <- meta_filt_aligned %>%
+  filter(new_visit_label %in% post_visits)
+
+meta_post_abx$treatment_group <- factor(meta_post_abx$treatment_group)
+meta_post_abx$subject_id      <- factor(meta_post_abx$subject_id)
+
+meta_post_abx <- meta_post_abx %>%
+  filter(sampleid %in% dist_labels) %>%
+  arrange(match(sampleid, dist_labels))
+
+# Indices of these samples in the distance matrix
+keep_idx <- dist_labels %in% meta_post_abx$sampleid
+
+# Subset the distance matrix
+sif_dist_post <- as.dist(as.matrix(sif_dist)[keep_idx, keep_idx])
+
+# quick sanity check
+stopifnot(length(sif_dist_post) > 0)
+```
+
+overall Adonis post-abx
+```{r}
+adonis_post <- adonis2(
+  sif_dist_post ~ new_visit_label + treatment_group,
+  data        = meta_post_abx,
+  permutations = 999,
+  strata       = meta_post_abx$subject_id,
+  by           = "terms"   # or "margin" if you prefer marginal tests
+)
+
+adonis_post
+```
+
+
+```{r}
+pairwise_post <- function(g1, g2, meta_post, sif_dist_post) {
+
+  # get sample IDs in the pair
+  sub_meta <- meta_post %>% 
+    dplyr::filter(treatment_group %in% c(g1, g2))
+
+  # get labels from the POST distance matrix
+  post_labels <- attr(sif_dist_post, "Labels")
+
+  # find indices for samples belonging to g1 or g2
+  idx <- post_labels %in% sub_meta$sampleid
+
+  # subset the distance matrix
+  sub_dist <- as.dist(as.matrix(sif_dist_post)[idx, idx])
+
+  # now run the PERMANOVA adjusting for visit
+  res <- adonis2(
+    sub_dist ~ new_visit_label + treatment_group,
+    data        = sub_meta,
+    permutations = 999,
+    strata       = sub_meta$subject_id,
+    by           = "terms"   # tests treatment controlling for visit
+  )
+
+  return(res)
+}
+```
+
+```{r}
+res_200_vs_400_post <- pairwise_post(t1, t2, meta_post_abx, sif_dist_post)
+res_200_vs_400_post
+
+res_200_vs_vanc_post <- pairwise_post(t1, t2, meta_post_abx, sif_dist_post)
+res_200_vs_vanc_post
+
+res_400_vs_vanc_post <- pairwise_post(t1, t2, meta_post_abx, sif_dist_post)
+res_400_vs_vanc_post
+```
+-results show that even only looking at the profiles after abx (D4 and later), all treatments are significantly different 
