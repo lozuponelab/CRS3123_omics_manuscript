@@ -1,0 +1,663 @@
+---
+title: "figures"
+output: html_document
+date: "2025-10-07"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(cowplot)
+library(tidyverse)
+library(viridis)
+library(ggplot2)
+library(ggrepel)
+library(ggh4x)
+library(ggpubr)
+library(tidytext)
+```
+
+**Reading in plots from .rdat**
+```{r}
+## loads in anything 
+figure_list <- Sys.glob('ggplots/*.rdat')
+
+for(file in unique(unlist(figure_list))){
+  load(file)
+}
+```
+
+# **Main Figures**
+
+## **Figure 1**
+probs won't be in here, will be put together via inkscape 
+plots:
+- participant demographics 
+- experimental timeline 
+
+## **Figure 2**
+16S microbiome data (microbiome data in general)
+plots:
+- faiths pd w stats
+- weighted unifrac pcoa
+- weighted unifrac dysbiosis index
+
+**editing plots for figure**
+```{r}
+# viridis_pal(option = "C", begin = 0, end = 1)(3)
+
+my_viridis_c_pal <- c("#0D0887FF",
+                      "#5D01A6FF",
+                      "#9C179EFF",
+                      "#CC4678FF",
+                      "#ED7953FF",
+                      "#FDB32FFF",
+                      "#F0F921FF",
+                      "#999999")
+
+my_viridis_c_pal_rev <- c("#999999",
+                          "#0D0887FF",
+                          "#5D01A6FF",
+                          "#9C179EFF",
+                          "#CC4678FF",
+                          "#ED7953FF",
+                          "#FDB32FFF",
+                          "#F0F921FF")
+```
+
+```{r}
+## changing transparency of boxplots
+wu_dist_plot@layers$geom_boxplot$aes_params[["alpha"]] <- 0.7
+
+## weighted dysbiosis index plot color palette and label changes
+wu_dist_plot_v2 <- wu_dist_plot +
+                     scale_fill_manual(values = my_viridis_c_pal_rev) +
+                     labs(title = "Beta Diversity: Sample Average Distance from Healthy Controls",
+                          subtitle = "Weighted UniFrac")
+```
+
+**putting figure together**
+possibly put the faith's pd deltas 
+```{r, fig.width=17, fig.height=14}
+(fig2 <- plot_grid(faith_plot_wStats,
+                   wu_dist_plot_v2,
+                   nrow = 2,
+                   labels = c('a)', 'b)'),
+                   align = c('hv'),
+                   axis = c('tblr'),
+                   label_size = 22))
+```
+
+## **Figure 3**
+16S taxonomic information and biplots
+plots: only show PC1/2?
+- 16S taxa biplot (weighted?)
+
+**editing plots for figure**
+```{r}
+## changing plot titles and legend positions 
+fig3a_plot_v2 <- fig3a_plot +
+                   labs(title = "16S Relative Abundance: Pathogenic Taxa of Interest")
+
+fig3b_plot_v2 <- fig3b_plot +
+                   labs(title = "16S Relative Abundance: Enterococcus Compared to VRE Culture Status") +
+                   theme(legend.position = "top",
+                         plot.subtitle = element_blank())
+
+fig3c_plot_v2 <- fig3c_plot +
+                    labs(title = '16S Relative Abundance: Mutualistic Taxa of Interest')
+```
+
+**putting figure together**
+```{r, fig.width=16, fig.height=21}
+(fig3 <- plot_grid(fig3a_plot_v2,
+                   fig3b_plot_v2,
+                   fig3c_plot_v2,
+                   labels = c('a)', 'b)', 'c)'),
+                   label_size = 22,
+                   ncol = 1,
+                   rel_heights = c(0.7, 0.55, 0.7)))
+```
+
+## **Figure 4**
+functional potential/shotgun meta figure
+plots:
+- gsea between treatment groups - send 200/400 comparison to supplemental bc idk what its adding here
+- secondary bile acid pathway ko breakdown 
+- secondary bile acid pathway taxa contributions
+
+**editing plots for figure**
+```{r}
+## changing color palettes and plot labels 
+bile_acid_path_wTax_v2 <- bile_acid_path_wTax +
+                               labs(title = 'TOC: Taxonomic Contribution to Secondary Bile Acid Biosynthesis Pathway Genes') +
+                               theme_bw(base_size = 20) +
+                               theme(legend.position = "none",
+                                     plot.subtitle = element_blank(),
+                                     strip.text.y.right = element_text(angle = 0),
+                                     axis.text.x = element_blank(),
+                                     axis.ticks.x = element_blank(),
+                                     axis.title.x = element_blank())
+
+toc_gsea_plot_v2 <- toc_gsea_plot +
+  labs(title = 'TOC: Treatment Group Pathway Representation Differences')
+```
+
+**putting figure together**
+```{r, fig.width=27, fig.height=20}
+fig4_top_row <- plot_grid(toc_gsea_plot_v2,
+                          labels = c('a)'),
+                          label_size = 22,
+                          nrow = 1)
+
+fig4_bottom_row <- plot_grid(bile_acid_path_plot,
+                             bile_acid_path_wTax_v2,
+                             labels = c('b)', 'c)'),
+                             label_size = 22,
+                             nrow = 1,
+                             rel_widths = c(1, 1))
+
+(fig4 <- plot_grid(fig4_top_row,
+                   fig4_bottom_row,
+                   nrow = 2,
+                   rel_heights = c(0.5, 1)))
+```
+
+## **Figure 5**
+targeted metabolomics data (SCFAs and bile acids)
+plots:
+- scfa concentration plots (acetate, butyrate, propionate) - move this to supplemental!!
+- bile acid plots - degree of transformation, primary v secondary, LCA plot
+- i think i should definitely put the stats on these plots
+
+**editing plots for figure**
+```{r}
+## changing x-axis labels 
+lithocholicacid_only_plot_v2 <- `lithocholicacid_(lca)_only_plot` +
+                                    labs(x = 'Visit')
+
+bile_acid_state_plot_v2 <- bile_acid_state_plot +
+                              labs(x = 'Visit')
+```
+
+**putting figure together**
+```{r, fig.width=15, fig.height=14}
+(fig5 <- plot_grid(lithocholicacid_only_plot_v2,
+                   bile_acid_state_plot_v2,
+                   labels = c('a)', 'b)'),
+                   label_size = 22,
+                   rel_heights = c(0.6, 1),
+                   ncol = 1) +
+          theme(plot.background = element_rect(fill = "white", color = "white")))
+
+```
+
+## **Figure 6**
+untargeted metabolomics data 
+plots:
+- lipid fraction pca
+- aqueous fraction pca 
+
+**editing plots for figure**
+```{r}
+lipid_euclidean_plot_v2 <- lipid_euclidean_plot +
+                              labs(title = "Lipid Metabolome Changes",
+                                   subtitle = "Euclidean Distances")
+
+
+aqueous_euclidean_plot_v2 <- aqueous_euclidean_plot +
+                                labs(title = "Aqueous Metabolome Changes",
+                                     subtitle = "Euclidean Distances")
+```
+
+**putting figure together**
+```{r, fig.width=15, fig.height=14}
+(fig6 <- plot_grid(aqueous_euclidean_plot_v2,
+                   lipid_euclidean_plot_v2,
+                   nrow = 2, 
+                   labels = c('a)', 'b)'),
+                   label_size = 22))
+```
+
+## **Figure 7** 
+host immune profiling figure (fecal water assay)
+plots:
+- concentration of significant immune markers over time 
+- stats comparing treatment group concentrations at D4
+
+**editing plots for figure**
+```{r}
+two_marker_plot_v2 <- two_marker_plot +
+                        theme_bw(base_size = 20) +
+                        theme(strip.text.y.right = element_text(angle = 0)) +
+                        labs(y = 'Concentration (pg/mL) (log10)')
+
+visit_strat_cp_il1b_heat_plot_v2 <- visit_strat_cp_il1b_heat_plot +
+                               theme_bw(base_size = 20) +
+                               theme(strip.text.y.right = element_text(angle = 0),
+                                     plot.subtitle = element_text(hjust = 0.5)) +
+                               scale_fill_gradient2(low = "#0D0887FF",
+                                                    high = "#CC4678FF",
+                                                    name = 'Log2FC\nof Group 1\nvs. Group 2')
+```
+
+**putting figure together**
+```{r, fig.width=17, fig.height=17}
+fig7_bottom_row <- plot_grid(visit_strat_cp_il1b_heat_plot_v2,
+                             NULL,
+                             nrow = 1,
+                             rel_widths = c(1, 0.6))
+
+
+(fig7 <- plot_grid(two_marker_plot_v2,
+                  fig7_bottom_row,
+                  nrow = 2,
+                  rel_heights = c(1, 0.5),
+                  labels = c('a)', ''),
+                  label_size = 22) +
+    theme(plot.background = element_rect(fill = "white", color = "white")))
+```
+
+# **Supplemental figure(s)**
+
+## **Figure S5**
+- used to be figure S2
+
+**editing plots for figure**
+```{r}
+## faiths pd deltas plots
+d1_toc_deltas_plot_v2 <- d1_toc_deltas_plot +
+                              labs(title = "Faith's PD Differences within Subject",
+                                   subtitle = "TOC-D1\nDiff > 0: higher at TOC | Diff < 0: higher at D1",
+                                   y = "Difference") +
+                              theme(axis.title.x = element_blank())
+
+d40_toc_deltas_plot_v2 <- d40_toc_deltas_plot +
+                              labs(subtitle = "D40-TOC\nDiff > 0: higher at D40 | Diff < 0: higher at TOC") +
+                              theme(plot.title = element_blank(),
+                                    axis.title.y = element_blank(),
+                                    axis.title.x = element_blank())
+
+## weighted pcoa plot color palette and label changes
+weighted_pcoa_plot_v2 <- weighted_pcoa_plot +
+                           scale_fill_manual(breaks = c(1, 2, 3, 4, 5, 6, 7, 0),
+                                             labels = c("Screen", "D1", "D4", "TOC", "D17", "D40", "D70", "HC"),
+                                             values = my_viridis_c_pal,
+                                             name = "Visit") +
+                           labs(title = "Beta Diversity: Sample PCoA Compared to Healthy Controls",
+                                subtitle = "Weighted UniFrac")
+```
+
+**putting figure together** 
+```{r, fig.width=15, fig.height=15}
+## creating universal y axis label since the y axis is the same for both plots 
+deltas_y_axis_label <- ggdraw() +
+  draw_label('Treatment Group',
+             size = 20,
+             hjust = 0.5,
+             y = 1) +
+  theme(plot.background = element_rect(fill = "white", color = "white"))
+
+figS5_top_row <- plot_grid(d1_toc_deltas_plot_v2, 
+                           d40_toc_deltas_plot_v2,
+                           nrow = 1,
+                           align = c('hv'),
+                           axis = c('tblr'))
+
+figS5_top_row_wLabs <- plot_grid(figS5_top_row,
+                                 deltas_y_axis_label,
+                                 ncol = 1,
+                                 rel_heights = c(1, 0.05),
+                                 align = c('hv'),
+                                 axis = c('tblr'))
+
+(figS5 <- plot_grid(figS5_top_row_wLabs,
+                   weighted_pcoa_plot_v2,
+                   wu_treatGroup_strat_heatPlot +
+                     labs(title = 'Beta Diversity: Average Distances from Healthy Controls (Weighted UniFrac)') +
+                     scale_y_discrete(labels = c('CRS3123\n400mg',
+                                                  'Vancomycin\n125mg')),
+                   nrow = 3,
+                   labels = c('a)', 'b)', 'c)'),
+                   label_size = 22,
+                   rel_heights = c(1, 0.8, 0.7)))
+```
+
+## **Figure S6**
+- used to be figure S3
+
+**editing plots for figure**
+```{r}
+## facet labs 
+treat_labs <- c(
+  CRS3123_200mg_po_bid = "CRS3123 200mg",
+  CRS3123_400mg_po_bid = "CRS3123 400mg",
+  Vancomycin_125mg_po_qid = "Vancomycin 125mg"
+)
+
+#setting abx_levels and manual color palette for consistency
+abx_levels <- c("Screen, D1" = "Pre (Screen, D1)",
+                "D4" = "During (D4)", 
+                "TOC" = "TOC", 
+                "D17, D40, D70" = "Post (D17, D40, D70)")
+
+abx_palette <- viridis(
+  n = length(abx_levels),
+  option = "C",
+  begin = 0,
+  end = 0.95
+)
+
+
+wu_biplot_facet_v2 <- wu_biplot_facet +
+                        scale_fill_manual(values = abx_palette,
+                                          breaks = names(abx_levels),
+                                          labels = abx_levels,
+                                          name = 'Visits Relative to Treatment') + 
+                        facet_wrap(~treatment_group,
+                                   nrow = 1, 
+                                   labeller = labeller(treatment_group = treat_labs)) +
+                        theme_bw(base_size = 20) +
+                        theme(legend.position = "top") +
+                        guides(fill = guide_legend(ncol = 4))
+
+
+buty_treatGroup_strat_heatPlot_v2 <- buty_treatGroup_strat_heatPlot +
+                      ggtitle('16S Relative Abundance: Butyrate Producing Family Differences') +
+                      scale_y_discrete(labels = c('CRS3123\n400mg',
+                                                  'Vancomycin\n125mg'))
+
+genusAbun_treatGroup_strat_heatPlot_v2 <- genusAbun_treatGroup_strat_heatPlot +
+                      ggtitle('16S Relative Abundance: Pathogenic and Mutualistic Taxa Differences') +
+                      scale_y_discrete(labels = c('CRS3123\n400mg',
+                                                  'Vancomycin\n125mg'))
+
+buty_abun_plot_v2 <- buty_abun_plot +
+                      labs(title = '16S Relative Abundance: Main Butyrate Producing Families',
+                           x = 'Visit')
+```
+
+**putting figures together**
+```{r, fig.height=18, fig.width=30}
+figS6_bottom_row <- plot_grid(buty_treatGroup_strat_heatPlot_v2,
+                              wu_biplot_facet_v2,
+                              nrow = 1,
+                              rel_widths = c(0.85, 1),
+                              label_size = 22,
+                              labels = c('c)', 'd)'))
+
+figS6_top_row <- plot_grid(genusAbun_treatGroup_strat_heatPlot_v2,
+                           buty_abun_plot_v2,
+                           ncol = 2,
+                           label_size = 22,
+                           labels = c('a)', 'b)'))
+
+(figS6 <- plot_grid(figS6_top_row,
+                    figS6_bottom_row,
+                    nrow = 2,
+                    rel_heights = c(1, 0.8)))
+```
+
+## **Figure S7**
+- used to be figure S4
+plots:
+- weighted unifrac shotgun biplot PC1-PC2
+- D1 pathway analysis results 
+
+**editing plots for figure**
+```{r}
+## shotgun biplot
+shotgun_wu_biplot_1to2_v2 <- shotgun_wu_biplot_1to2 +
+                               labs(title = 'Metagenomics: Taxa Influencing Distances',
+                                    subtitle = 'Weighted UniFrac') +
+                               theme(legend.position = "right")
+
+
+## d1 pathway analysis plot 
+d1_gsea_plot_v2 <- d1_gsea_plot +
+                      labs(title = 'Baseline (D1): Treatment Group Pathway Representation Differences')
+```
+
+**putting figures together**
+```{r, fig.width=25, fig.height=18}
+(figS7 <- plot_grid(shotgun_wu_biplot_1to2_v2,
+                   d1_gsea_plot_v2,
+                   nrow = 2, 
+                   labels = c('a)', 'b)'),
+                   label_size = 22,
+                   rel_heights = c(0.8, 1),
+                   align = c('hv'),
+                   axis = c('tblr')))
+```
+
+## **Figure S8**
+- used to be figure S5
+```{r, fig.width=13, fig.height=10}
+(figS8 <- plot_grid(mini_scfaConc_plot +
+                      labs(x = 'Visit'),
+                    labels = c('a)'),
+                    label_size = 22))
+```
+
+## **Figure S9**
+- used to be figure S7
+immune profile biplots by treatment group
+
+plots:
+- canberra distance biplots (only significant vectors included)
+- stats comparing concentrations of all immune markers at each time point between treatment groups
+
+```{r}
+p_pc1_pc2_facet_v2 <- p_pc1_pc2_facet +
+                       theme_bw(base_size = 20) +
+                       theme(legend.position = "top") +
+                       guides(fill = guide_legend(title = 'Visit Groupings'),
+                              color = guide_legend(title = 'Visit Groupings'))
+
+immu_visit_strat_heat_plot_v2 <- visit_strat_heat_plot +
+                                   theme_bw(base_size = 20) +
+                                   theme(strip.text.y.right = element_text(angle = 0),
+                                         plot.subtitle = element_text(hjust = 0.5)) +
+                                   scale_fill_gradient2(low = "#0D0887FF",
+                                             high = "#CC4678FF",
+                                             name = 'Log2FC\nof Group 1\nvs. Group 2')
+```
+
+```{r, fig.width=18, fig.height=18}
+(figS9 <- plot_grid(p_pc1_pc2_facet_v2,
+                    immu_visit_strat_heat_plot_v2,
+                    nrow = 2,
+                    labels = c('a)', 'b)'),
+                    label_size = 22) +
+   theme(plot.background = element_rect(fill = "white", color = "white")))
+```
+
+
+## **VRE plot edits for Laurie/poster**
+```{r, fig.width=15.5, fig.height=6}
+fig3b_plot_vLaurie <- fig3b_plot +
+                   labs(title = "16S Relative Abundance: Enterococcus Compared to VRE Culture Status") +
+                   theme(legend.position = "top",
+                         plot.subtitle = element_blank(),
+                         legend.text = element_text(size = 20)) +
+                   guides(fill = guide_legend(override.aes = list(size = 4)))
+
+fig3b_plot_vLaurie@layers$geom_jitter...4$aes_params[["size"]] <- 4
+
+fig3b_plot_vLaurie
+```
+
+
+## **Saving figure drafts**
+```{r}
+## fig2
+ggsave('fig2.pdf',
+       plot = fig2,
+       width = 17,
+       height = 14)
+ggsave('pngs/fig2.png',
+       plot = fig2,
+       width = 17,
+       height = 14)
+
+## fig3
+ggsave('fig3.pdf',
+       plot = fig3,
+       width = 16,
+       height = 21)
+ggsave('pngs/fig3.png',
+       plot = fig3,
+       width = 16,
+       height = 21)
+
+## fig3 - VRE plot for laurie
+ggsave('../madi_crestone/plots/lauries_enteroVRE_plot.pdf',
+       plot = fig3b_plot_vLaurie,
+       width = 15.5,
+       height = 6)
+ggsave('../madi_crestone/plots/pngs/lauries_enteroVRE_plot.png',
+       plot = fig3b_plot_vLaurie,
+       width = 15.5,
+       height = 6)
+
+## fig4
+ggsave('fig4.pdf',
+       plot = fig4,
+       width = 27,
+       height = 20)
+ggsave('pngs/fig4.png',
+       plot = fig4,
+       width = 27,
+       height = 20)
+
+## fig5
+ggsave('fig5.pdf',
+       plot = fig5,
+       width = 15,
+       height = 14)
+ggsave('pngs/fig5.png',
+       plot = fig5,
+       width = 15,
+       height = 14)
+
+## fig6
+ggsave('fig6.pdf',
+       plot = fig6,
+       width = 15,
+       height = 14)
+ggsave('pngs/fig6.png',
+       plot = fig6,
+       width = 15,
+       height = 14)
+
+## fig7
+ggsave('fig7.pdf',
+       plot = fig7,
+       width = 17,
+       height = 17)
+ggsave('pngs/fig7.png',
+       plot = fig7,
+       width = 17,
+       height = 17)
+
+## figS2
+ggsave('figS5.pdf',
+       plot = figS5,
+       width = 15,
+       height = 15)
+## png version needs to be longer for some reason or the text gets cut off 
+ggsave('pngs/figS5.png',
+       plot = figS5,
+       width = 17,
+       height = 15)
+
+## figS3
+ggsave('figS6.pdf',
+       plot = figS6,
+       width = 30,
+       height = 18)
+ggsave('pngs/figS6.png',
+       plot = figS6,
+       width = 30,
+       height = 18)
+
+## figS4
+ggsave('figS7.pdf',
+       plot = figS7,
+       width = 25,
+       height = 18)
+ggsave('pngs/figS7.png',
+       plot = figS7,
+       width = 25,
+       height = 18)
+
+## figS5 
+ggsave('figS8.pdf',
+       plot = figS8,
+       width = 13,
+       height = 10)
+ggsave('pngs/figS8.png',
+       plot = figS8,
+       width = 13,
+       height = 10)
+
+## figS7
+ggsave('figS9.pdf',
+       plot = figS9,
+       width = 18,
+       height = 18)
+ggsave('pngs/figS9.png',
+       plot = figS9,
+       width = 20,
+       height = 18)
+```
+
+## **Figure graveyard**
+all figures that I put together that got taken out but keeping just in case we want them again
+
+**16S taxa biplot with fig3**
+```{r}
+fig3_old <- plot_grid(fig3,
+                   wu_biplot_facet_v2,
+                   nrow = 1,
+                   rel_widths = c(1, 0.8),
+                   label_size = 22,
+                   labels = c('', 'd)'))
+```
+
+
+**Shotgun taxa biplot**
+```{r, fig.width=24, fig.height=17}
+shotgun_title <- ggdraw() +
+  draw_label('Shotgun Metagenomics: Weighted UniFrac Taxa Biplots',
+             size = 28,
+             hjust = 1.12) +
+  theme(plot.background = element_rect(fill = "white", color = "white"))
+
+full_shotgun_plot <- plot_grid(shotgun_wu_biplot_1to2 +
+                     ggtitle('PC1-PC2') +
+                     scale_fill_viridis(option = "C", discrete = TRUE,
+                                        name = "Visit",
+                                        labels = c("D1", "TOC", "Screen")),
+                   shotgun_wu_biplot_2to3 +
+                     ggtitle('PC2-PC3') +
+                     scale_fill_viridis(option = "C", discrete = TRUE,
+                                        name = "Visit",
+                                        labels = c("D1", "TOC", "Screen")),
+                  nrow = 2,
+                  align = c('hv'),
+                  axis = c('tblr'))
+
+(full_shotgun_plot_wTitle <- plot_grid(shotgun_title,
+                   full_shotgun_plot,
+                   nrow = 2,
+                   align = c('hv'),
+                   axis = c('tblr'),
+                   rel_heights = c(0.07, 1),
+                   labels = c('b)'),
+                   label_size = 22))
+```
+
