@@ -1,0 +1,88 @@
+---
+title: "shotgun_ebi_metadata"
+output: html_document
+date: "2026-05-13"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(readr)
+library(rio)
+library(data.table)
+```
+
+**Needed files**
+```{r}
+## reading this in to pull metadata already present in the qiita submission materials
+qiita_data_fp <- '../1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+qiita_data <- read_tsv(qiita_data_fp)
+
+## this template was pulled directly from the EBI-ENA submission portal
+ebi_temp_fp <- 'Checklist_GSC-MIxS human gut_ERC000015_1778689658767.tsv'
+ebi_temp <- read_tsv(ebi_temp_fp,
+                     skip = 1) %>% 
+  filter(tax_id != "#units")
+
+shotun_id_fp <- 'ID.txt'
+shotgun_ids <- read_tsv(shotun_id_fp,
+                        col_names = c('sample_name'))
+```
+
+**Data wrangled**
+env_biome = broad-scale environmental context (urban biome [ENVO:01000249])
+local environmental context (lumen of intestine [UBERON:0018543]) - this is going to have to be good enough
+env_material = environmental medium (fecal material [ENVO:00002003])
+
+```{r}
+select_for_ebi <- c('sample_name',
+                    'host_subject_id',
+                    'visit',
+                    'treatment_group',
+                    'latitude',
+                    'longitude',
+                    'collection_date',
+                    'country_entry',
+                    'description',
+                    'host_taxid',
+                    'host_scientific_name',
+                    'env_biome',
+                    'env_material')
+
+new_col_names <-  c('sample_alias' = 'sample_name',
+                    'host subject id' = 'host_subject_id' ,
+                    'visit' = 'visit',
+                    'treatment_group' = 'treatment_group',
+                    'geographic location (latitude)' = 'latitude',
+                    'geographic location (longitude)' = 'longitude',
+                    'collection date' = 'collection_date',
+                    'geographic location (country and/or sea)' = 'country_entry',
+                    'sample_description' = 'description',
+                    'tax_id' = 'host_taxid',
+                    'scientific_name' = 'host_scientific_name',
+                    'broad-scale environmental context' = 'env_biome',
+                    'environmental medium' = 'env_material')
+
+(final_shotgun_ebi_meta <- qiita_data %>% 
+  filter(sample_name %in% shotgun_ids$sample_name) %>% 
+  select(all_of(select_for_ebi)) %>% 
+  rename(!!!new_col_names) %>% 
+  mutate(sample_title = paste(sample_alias), ## it might get mad at me for this
+         "local environmental context" = paste("lumen of intestine [UBERON:0018543]"),
+         "broad-scale environmental context" = paste(`broad-scale environmental context`, "[ENVO:01000249]"),
+         "environmental medium" = paste(`environmental medium`, "[ENVO:00002003]"),
+         "project name" = paste("Crestone CRS3123 Phase II")) %>% 
+  select(all_of(colnames(ebi_temp)), everything()))
+```
+
+**saving my output to combine with the template**
+```{r}
+write_tsv(final_shotgun_ebi_meta,
+          file = "shotgun_ebi_meta.tsv")
+```
+

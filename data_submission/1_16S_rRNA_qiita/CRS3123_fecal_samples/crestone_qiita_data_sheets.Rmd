@@ -1,0 +1,579 @@
+---
+title: "crestone_qiita_data_sheets"
+output: html_document
+date: "2026-04-27"
+author: "Madi Apgar"
+---
+
+## **16S SEQUENCING RUNS ASSOCIATED WITH THIS PROJECT:**
+- SEQ103
+- SEQ103b
+- SEQ104
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(readr)
+library(rio)
+library(data.table)
+```
+
+**Functions**
+```{r}
+## allows you to read in a metadata file with a specified sampleid and subjectid columns and
+## just pull the wanted metadata columns based on user input
+pull_wanted_metadata <- function(input_table_fps,
+                                 sampleid_col,
+                                 subjectid_col,
+                                 join_by_col){
+  df_list <- list()
+  for (fp_name in unique(unlist(names(input_table_fps)))){
+      meta_list <- input_table_fps[[fp_name]]
+      
+      tmp_table <- rio::import(meta_list[['path']]) %>% 
+        select(all_of(meta_list[['meta_col_list']])) 
+      
+      if(all(c('rename_these_cols', 'new_col_names') %in% names(meta_list))){
+        data.table::setnames(tmp_table, 
+                             meta_list[['rename_these_cols']], 
+                             meta_list[['new_col_names']])
+      }
+      
+      df_list[[fp_name]] <- tmp_table
+  }
+  
+  return(df_list)
+}
+
+## puts together sample info table with qiita-approved columns (i think)
+make_qiita_sample_info <- function(input_table,
+                                   sampleid_col,
+                                   sampleid_delim, 
+                                   collection_date_col,
+                                   date_delim,
+                                   paper_title,
+                                   des_entry,
+                                   scien_name_entry,
+                                   tax_id_entry,
+                                   q_sampleType_entry,
+                                   sampleType_entry,
+                                   empo1_entry,
+                                   empo2_entry,
+                                   empo3_entry,
+                                   empo4_entry,
+                                   env_biome_entry,
+                                   env_feature_entry,
+                                   env_material_entry,
+                                   env_package_entry,
+                                   dna_extracted_entry,
+                                   physical_speciman_location_entry, 
+                                   physical_speciman_remaining_entry,
+                                   host_age_units_entry,
+                                   host_taxid_entry,
+                                   host_scientificName_entry,
+                                   host_commonName_entry,
+                                   host_life_stage_entry,
+                                   host_height_entry,
+                                   host_height_units_entry,
+                                   host_weight_entry,
+                                   host_weight_units_entry,
+                                   host_bmi_entry,
+                                   host_habitat_entry,
+                                   host_bodySite_entry,
+                                   host_bodyProduct_entry,
+                                   depth_entry, 
+                                   altitude_entry,
+                                   isolate_strain_taxid_entry,
+                                   isolate_scientific_name_entry,
+                                   exp_set_entry){
+  ## putting together regex pattern to exclude all date components except for the year based on the input delim
+  date_pattern <- paste0("^.*\\", date_delim, "*\\", date_delim)
+  
+  qiita_sampleInfo_table <- input_table %>% 
+    ## this can have special characters in it! (actual sampleids)
+    rename("anonymized_name" = sampleid_col,
+           "collection_date" = collection_date_col) %>% 
+    select(anonymized_name, collection_date) %>% 
+    filter(!grepl('Mock|PCR', anonymized_name),
+           !is.na(anonymized_name)) %>%
+    mutate(sample_name = paste(gsub(anonymized_name, 
+                                    pattern = sampleid_delim, replacement = ".")), ## '.' is the only accepted delim in sampleids
+           tube_id = paste(sample_name), ## nichole said tube id = sampleid 
+           ## NOTE!! for human samples, ONLY INCLUDE THE YEAR COLLECTED!!
+           collection_date = paste(gsub(collection_date, pattern = date_pattern, replacement = "")), 
+           title = paste(paper_title),
+           scientific_name = paste(scien_name_entry),
+           taxon_id = paste(tax_id_entry),
+           description = paste(des_entry), 
+           qiita_sample_type = paste(q_sampleType_entry), 
+           sample_type = paste(sampleType_entry),  
+           empo_1 = paste(empo1_entry),
+           empo_2 = paste(empo2_entry),
+           empo_3 = paste(empo3_entry),
+           empo_4 = paste(empo4_entry), 
+           env_biome = paste(env_biome_entry),
+           env_feature = paste(env_feature_entry),
+           env_material = paste(env_material_entry), 
+           env_package = paste(env_package_entry), 
+           collection_timestamp = paste(collection_date),
+           dna_extracted = paste(dna_extracted_entry),
+           physical_speciman_location = paste(physical_speciman_location_entry), 
+           physical_speciman_remaining = paste(physical_speciman_remaining_entry), 
+           host_age_units = paste(host_age_units_entry),
+           host_taxid = paste(host_taxid_entry),
+           host_scientific_name = paste(host_scientificName_entry),
+           host_common_name = paste(host_commonName_entry),
+           host_life_stage = paste(host_life_stage_entry), 
+           host_height = paste(host_height_entry),
+           host_height_units = paste(host_height_units_entry),
+           host_weight = paste(host_weight_entry),
+           host_weight_units = paste(host_weight_units_entry),
+           host_body_mass_index = paste(host_bmi_entry),
+           host_body_habitat = paste(host_habitat_entry), 
+           host_body_site = paste(host_bodySite_entry), 
+           host_body_product = paste(host_bodyProduct_entry), 
+           depth = paste(depth_entry),
+           altitude = paste(altitude_entry),
+           isolate_strain_taxonomy_id = paste(isolate_strain_taxid_entry),
+           isolate_scientific_name = paste(isolate_scientific_name_entry),
+           sequencing_run_number = paste(exp_set_entry))
+  
+  return(qiita_sampleInfo_table)
+}
+
+## puts together qiita prep information file for each sequencing run
+make_qiita_prep_info <- function(input_table,
+                                 sampleid_col,
+                                 barcode_seq_col,
+                                 linker_primer_col,
+                                 run_date_col,
+                                 sub_date_delim = NULL,
+                                 expDes_description_entry,
+                                 library_protocol_entry,
+                                 linker_entry,
+                                 platform_entry,
+                                 run_center_entry,
+                                 run_prefix_entry,
+                                 pcr_primer_entry,
+                                 seq_method_entry,
+                                 target_gene_entry,
+                                 target_subfragment_entry,
+                                 center_name_entry,
+                                 center_project_name_entry,
+                                 instrument_model_entry){
+  
+  qiita_prepInfo_table <- input_table %>% 
+      rename(sample_name = sampleid_col,
+             barcode = barcode_seq_col,
+             primer = linker_primer_col,
+             run_date = run_date_col) %>% 
+      select(sample_name, barcode, primer, run_date) %>% 
+      filter(!grepl('Mock|PCR', sample_name), ## exclude all mock and pcr blank samples
+             !grepl('U', sample_name), ## exclude all unscheduled visit samples since not used in analysis 
+             !grepl('103-1001', sample_name), ## exclude the one sample from someone who dropped out after screen (in SEQ104)
+             !is.na(sample_name)) %>% 
+      mutate(experiment_design_description = paste(expDes_description_entry), ## changes 
+             library_construction_protocol = paste(library_protocol_entry),
+             linker = paste(linker_entry),
+             platform = paste(platform_entry),
+             run_center = paste(run_center_entry),
+             run_prefix = paste(run_prefix_entry), ## changes 
+             pcr_primers = paste(pcr_primer_entry),
+             sequencing_method = paste(seq_method_entry),
+             target_gene = paste(target_gene_entry),
+             target_subfragment = paste(target_subfragment_entry),
+             center_name = paste(center_name_entry),
+             center_project_name = paste(center_project_name_entry),
+             instrument_model = paste(instrument_model_entry))
+  
+  if (is.character(sub_date_delim)){
+    qiita_prepInfo_table <- qiita_prepInfo_table %>% 
+      ## match last period and word of string and replace it with nothing 
+      mutate(run_date = gsub(run_date, pattern = "\\.\\w+$", replacement = ""),
+             ## make all date vals separated by '/'
+             run_date = paste(gsub(run_date, pattern = sub_date_delim, replacement = "/")))
+  }
+  
+  return(qiita_prepInfo_table)
+}
+```
+
+**File Paths**
+Files that you'll want for this:
+- barcode files for each sequencing run in the project
+- metadata file(s) associated with this project which should *at minimum* contain these columns:
+  - sample ids
+  - mouse/subject ids
+  - mouse/subject weight
+  - mouse/subject age
+  - mouse/subject sex
+  - for humans: height and bmi 
+  - columns containing any other variables measured in the project (i.e. diet, days in the timeline, etc.)
+  
+```{r}
+## saving input file paths as a variable so we can easily reference them later 
+## and if they need to be changed, you just have to do it up here instead of throughout the 
+## entire script
+
+## i've included an example of what it would look like to have sequencing runs under multiple
+## sub-projects (i.e. samples collected in multiple geographical locations, stool vs tissue samples,
+## etc.)
+
+## crestone stool samples
+s103_fp <- 'input_files/S103_barcodes.txt'
+s103b_fp <- 'input_files/S103b_barcodes.txt'
+s104_fp <- 'input_files/S104_barcodes.txt'
+
+## the following files were used to generate the sample metadata file publicly available on qiita
+## but WILL NOT be released onto this repository due to potentially identifying information 
+proc_meta_fp <- 'proc_seq_metadata.tsv'
+subj_demo_fp <- 'subject_demographics_wLocation.tsv'
+vre_data_fp <- 'vre_data.csv'
+```
+
+**Reading in barcodes files for multiple sequencing runs**
+I wrote a for loop to read in all the barcodes files as a dataframe and save them with the filename as the variable name. There are examples of for loops for .csvs and .tsvs, so just choose whichever ones are applicable to your project!
+```{r}
+## tsvs
+fp_list <- c(s103_fp, 
+             s103b_fp, 
+             s104_fp,
+             vre_data_fp)
+
+for (fp in unique(unlist(fp_list))){
+  ## get what the file extension is for the fp
+  file_extension <- paste0(".", tools::file_ext(fp))
+  ## pull it off the file name so i can use that as the variable name
+  table_name <- paste(gsub(basename(fp), pattern = file_extension, replacement = ""))
+  
+  ## rio package will load in files with different delims
+  assign(table_name,
+         rio::import(fp))
+}
+```
+
+**Reading in metadata files**
+This for loop and function will read in the metadata files as a dataframe and change the sampleid/subjectid columns to qiita-approved names. It will also pull any other metadata columns that you want included in your qiita sample information sheet (i.e. what other variables were measured and will be helpful for someone trying to replicate your analysis?). The dataframe will be saved as a variable with the name assigned to each `metadata_fp` in `meta_fp_list`. 
+
+The named vectors are helpful if the names of your sampleid/subjectid columns differ between your metadata files (if they're the same, you can just put what the column name for the sample/subject id is by each metadata file in `meta_sampleid_list` and `meta_subjectid_list`). 
+
+(ps. named vectors (c()) in r are like dictionaries in python! {key: value})
+
+- need to take out 103-1001 since I think they dropped out right after the screen and we don't have any demographic info for them 
+```{r}
+## not pulling collection date or visit description from here but I might need to...
+meta_input_list <- list('visit_meta' = list('path' = proc_meta_fp,
+                                            'meta_col_list' = c('sampleid', 'subject_id', 'new_visit_label', 'new_visit_num'),
+                                            'rename_these_cols' = c('new_visit_label', 'new_visit_num'),
+                                            'new_col_names' = c('visit', 'visit_number')),
+                        'subj_demo_meta' = list('path' = subj_demo_fp,
+                                                'meta_col_list' =  c('subject_id', 'age', 'sex', 'treatment_group', 'city', 'state')),
+                        'vre_meta' = list('path' = vre_data_fp,
+                                          'meta_col_list' =  c('subject_id', 'visit_label', 'vre_culture_status'),
+                                          'rename_these_cols' = c('visit_label'),
+                                          'new_col_names' = c('visit')))
+
+all_meta_list <- pull_wanted_metadata(input_table_fps = meta_input_list,
+                                      sampleid_col = 'sampleid',
+                                      subjectid_col = 'subject_id',
+                                      join_by_col = 'subject_id')
+
+us_locations <- c('TX', 'ID', 'PA', 'CA', 'FL', 'MT', 'MI', 'MO', 'GA')
+
+elevation_mapping <- c("San Antonio" = 220,
+                       "Idaho Falls" = 1436,
+                       "Uniontown" = 323,
+                       "Calgary" = 1045,
+                       "Lancaster" = 719,
+                       "London" = 268,
+                       "Miami" = 2,
+                       "Houston" = 15,
+                       "Butte" = 1775,
+                       "Royal Oak" = 202,
+                       "Fullerton" = 50,
+                       "Weldon Spring" = 165,
+                       "Marietta" = 344)
+
+latitude_mapping <- c("San Antonio" = 29.4241,
+                       "Idaho Falls" = 43.4913700,
+                       "Uniontown" = 39.9001,
+                       "Calgary" = 51.0447,
+                       "Lancaster" = 34.696,
+                       "London" = 51.50735,
+                       "Miami" = 25.775163,
+                       "Houston" = 29.7604,
+                       "Butte" = 46.0064,
+                       "Royal Oak" = 42.4895,
+                       "Fullerton" = 33.8703,
+                       "Weldon Spring" = 38.713285,
+                       "Marietta" = 33.952602)
+
+longitude_mapping <- c("San Antonio" = -98.4936,
+                       "Idaho Falls" = -112.0402264,
+                       "Uniontown" = -79.7164326,
+                       "Calgary" = -114.0719,
+                       "Lancaster" = -118.138,
+                       "London" = -0.12776,
+                       "Miami" = -80.208615,
+                       "Houston" = -95.3698,
+                       "Butte" = -112.5297,
+                       "Royal Oak" = -83.1446,
+                       "Fullerton" = -117.9253,
+                       "Weldon Spring" = -90.688274,
+                       "Marietta" = -84.5499327)
+
+all_metadata <- all_meta_list[["visit_meta"]] %>% 
+  left_join(all_meta_list[["subj_demo_meta"]], by = "subject_id") %>% 
+  left_join(all_meta_list[["vre_meta"]], by = c("subject_id", "visit")) %>% 
+  filter(subject_id != "103-1001") %>% 
+  mutate(visit = ifelse(visit == 'D10-15/TOC', 'TOC', visit),
+         vre_culture_status = case_when(
+           is.na(vre_culture_status) ~ 'not_detected',
+           vre_culture_status == 'ND' ~ 'not_detected',
+           .default = vre_culture_status
+         ),
+         country_entry = ifelse(state %in% us_locations, 'USA', 'Canada'),
+         geo_loc_entry = paste(country_entry, state, city, sep = ":"),
+         elevation = elevation_mapping[city],
+         latitude = latitude_mapping[city],
+         longitude = longitude_mapping[city],
+         host_sex_entry = ifelse(sex == 'M', 'male', 'female')) %>%  
+  rename(anonymized_name = sampleid,
+         host_subject_id = subject_id,
+         host_age_entry = age) %>% 
+  select(!c('sex', 'city', 'state'))
+```
+
+**Fixing the years in S104 barcodes file (only 2 digit when should be 4 digit)**
+```{r}
+## creating a copy of this barcodes file just in case i mess it up 
+s104_bar_copy <- S104_barcodes
+
+## pulling everything after the last '/' in the collection date col
+short_years <- str_extract(s104_bar_copy$Collection_Date, "[^*\\/*\\/].$")
+## adding '20' to all years pulled above as a replacement
+year_replacement <- paste0("20", short_years)
+## making sure that only the year is not replaced and not the actual date by saying the 
+## replaced values cant have a '/' after them anywhere
+year_pattern <- paste0(short_years, "(?!.*\\/)")
+## replacing all 2 digit year values with 
+s104_bar_copy$Collection_Date <- str_replace(s104_bar_copy$Collection_Date, pattern = year_pattern, replacement = year_replacement)
+```
+
+# **QIITA sample information file (all samples that were sequenced)**
+The code below will add all the columns qiita wants in the sample information file to each sequencing run barcodes file and afterwards will put all qiita-approved files into the same dataframe. You will need to change the entries to the `make_qiita_sample_info()` function based on the samples in your project. Here's a key of what each required input means:
+
+- input_table = the input dataframe (the for loop does this for you) - these are the barcodes files!
+- sampleid_col = the name of the sampleid column (as a string)
+- collection_date_col = the name of the collection data column (as a string) NOTE: for human data, ONLY INCLUDE THE YEAR COLLECTED
+- date_delim = in your collection date column, what are the digits between the MMDDYYYY?
+- paper_title = what is the title of the associated publication?,
+- des_entry = a description of the samples (see example below)
+- scien_name_entry = what qiita wants for the scientific name (see example below and qiita sample info template excel sheet)
+- tax_id_entry = what qiita wants for the tax id (see example below and qiita sample info template excel sheet)
+- q_sampleType_entry = what qiita wants for the qiita sample type (see example below and qiita sample info template excel sheet)
+- sampleType_entry = what qiita wants for the sample type (see example below and qiita sample info template excel sheet)
+- geo_loc_entry = the country, state, and city the samples were taken in 
+- country_entry = the country the samples were taken in
+- elevation_entry = the elevation of where the samples were taken
+- empo1_entry = what qiita wants for empo_1 (see example below and qiita sample info template excel sheet)
+- empo2_entry = what qiita wants for empo_2 (see example below and qiita sample info template excel sheet)
+- empo3_entry = what qiita wants for empo_3 (see example below and qiita sample info template excel sheet)
+- empo4_entry = what qiita wants for empo_4 (see example below and qiita sample info template excel sheet)
+- env_biome_entry = what qiita wants for the env biome (see example below and qiita sample info template excel sheet)
+- env_feature_entry = what qiita wants for the env feature (see example below and qiita sample info template excel sheet)
+- env_material_entry = what qiita wants for the env material (see example below and qiita sample info template excel sheet)
+- env_package_entry = what qiita wants for the env package (see example below and qiita sample info template excel sheet)
+- lat_entry = the latitude of where the samples were taken
+- long_entry = the longitude of where the samples were taken
+- dna_extracted_entry = was DNA extracted from the samples? (TRUE/FALSE)
+- physical_speciman_location_entry = where is the physical speciman? 
+- physical_speciman_remaining_entry = is there any physical speciman remaining? (TRUE/FALSE)
+- host_age_entry = how old was the host of the sample? (can be string or name of column)
+- host_age_units_entry = the units of the host's age (hours, days, weeks, months, years)
+- host_taxid_entry = what qiita wants for the host taxid (see example below and qiita sample info template excel sheet)
+- host_scientificName_entry = what qiita wants for the host scientific entry (see example below and qiita sample info template excel sheet)
+- host_commonName_entry = what qiita wants for the host common name (see example below and qiita sample info template excel sheet)
+- host_life_stage_entry = what qiita wants for the host life stage (see example below and qiita sample info template excel sheet)
+- host_sex_entry = what is the biological sex of the host? (can be string or name of column)
+- host_height_entry = what height is the host? (for humans) (can be string or name of column)
+- host_height_units_entry = what are the units of the host height above? (in, feet, centimeters)
+- host_weight_units_entry = what are the units of the host weight above? (g, lbs, kg)
+- host_bmi_entry = what is the bmi of the host? (for humans) (can be string or name of column)
+- host_habitat_entry = what qiita wants for the host habitat (see example below and qiita sample info template excel sheet)
+- host_bodySite_entry = what qiita wants for the host body site (see example below and qiita sample info template excel sheet)
+- host_bodyProduct_entry = what qiita wants for the host body product (see example below and qiita sample info template excel sheet)
+- depth_entry = what depth were the samples taken at? (for soil, water, etc)
+- altitude_entry = what altitude were the samples taken at? (for atmospheric samples)
+- isolate_strain_taxid_entry = see qiita sample info template excel sheet
+- isolate_scientific_name_entry = see qiita sample info template excel sheet
+- exp_set_entry = the name of the sub-project for future reference (if there are multiple sub-projects)
+
+I've filled in the function below with an example from the c. diff mouse model project I just recently completed. The example is only filled out for `project1` so you'd just have to copy/paste the code below and do the same for `project2`. 
+
+- might need to fix the year in SEQ104s collection dates (only 2 digit instead of 4 digit)
+- will need to make a key or note for the sample/subject ids since I had to change the '-' to '.' for qiita
+```{r}
+## list of barcodes dfs to put into the for loop so it iterates through the function for each one
+barcodes_list <- list("SEQ103" = S103_barcodes,
+                      "SEQ103b" = S103b_barcodes,
+                      "SEQ104" = s104_bar_copy)
+
+## empty df to put the qiita-approved dataframes in 
+qiita_dfs <- tibble()
+
+## yay! for loop do the work with me
+#### YOU WILL NEED TO REPLACE THE ENTRIES GOING INTO THE FUNCTION THIS IS JUST AN EXAMPLE!!! ####
+for (df_name in unique(names(barcodes_list))){
+        mini_samp_info <- make_qiita_sample_info(input_table = barcodes_list[[df_name]],
+                                                 sampleid_col = "SampleID",
+                                                 sampleid_delim = "([-])",
+                                                 collection_date_col = "Collection_Date",
+                                                 date_delim = "/",
+                                                 paper_title = "Fecal multi-omics reveal microbiota and secondary bile acid biosynthesis preservation in patients treated with CRS3123 versus vancomycin for Clostridioides difficile infection",
+                                                 des_entry = "human:feces",
+                                                 scien_name_entry = "human gut metagenome",
+                                                 tax_id_entry = 408170,
+                                                 q_sampleType_entry = "feces",
+                                                 sampleType_entry = "feces",
+                                                 empo1_entry = "Host-associated",
+                                                 empo2_entry = "Host-associated (non-saline)",
+                                                 empo3_entry = "Animal (non-saline)",
+                                                 empo4_entry = "Animal distal gut (non-saline)",
+                                                 env_biome_entry = "urban biome",
+                                                 env_feature_entry = "human-associated habitat",
+                                                 env_material_entry = "fecal material",
+                                                 env_package_entry = "human-gut",
+                                                 dna_extracted_entry = TRUE,
+                                                 physical_speciman_location_entry = "University of Colorado Anschutz", 
+                                                 physical_speciman_remaining_entry = FALSE,
+                                                 host_age_units_entry = "years",
+                                                 host_taxid_entry = 9606,
+                                                 host_scientificName_entry = "Homo sapiens",
+                                                 host_commonName_entry = "human",
+                                                 host_life_stage_entry = "adult",
+                                                 host_height_entry = "not applicable",
+                                                 host_height_units_entry = "not applicable",
+                                                 host_weight_entry = "not applicable",
+                                                 host_weight_units_entry = "not applicable",
+                                                 host_bmi_entry = "not applicable",
+                                                 host_habitat_entry = "UBERON:feces",
+                                                 host_bodySite_entry = "UBERON:feces",
+                                                 host_bodyProduct_entry = "UBERON:feces",
+                                                 depth_entry = "not applicable", 
+                                                 altitude_entry = "not applicable",
+                                                 isolate_strain_taxid_entry = "not applicable",
+                                                 isolate_scientific_name_entry = "not applicable",
+                                                 exp_set_entry = df_name)
+  
+  qiita_dfs <- rbind(qiita_dfs, mini_samp_info)
+}
+
+## combine qiita-approved df with wanted metadata information
+all_qiita_dfs <- all_metadata %>% 
+  left_join(qiita_dfs, by = 'anonymized_name') %>% 
+  select(sample_name, everything())
+
+## add the commands below via pipe '%>%' if you need to replace any delimiters in your sampleids 
+## for qiita by changing the delimiter in pattern = "([delim])"
+## i think qiita only takes '.' as a delimiter, if you want to replace w something: replacement = "([.])"
+## qiita doesn't want '+' or '-' in sample names/tube ids so replacing those w nothing
+  # mutate(sample_name = paste(gsub(sample_name, pattern = "([+])", replacement = "")),
+  #        sample_name = paste(gsub(sample_name, pattern = "([-])", replacement = "")),
+  #        tube_id = paste(gsub(tube_id, pattern = "([+])", replacement = "")),
+  #        tube_id = paste(gsub(tube_id, pattern = "([-])", replacement = "")))
+```
+
+## **ALL QIITA SAMPLE INFO DFS TOGETHER!!**
+Once you've put together the qiita-approved sample information df together for each sub-project, you can combine them together into the same dataframe and save it as a .tsv (or .csv)! To do this all the column names need to be EXACTLY THE SAME or this won't work (which should be the case if you've made it this far but double check anyways). 
+```{r}
+## saving sample information df as a .tsv
+write_tsv(all_qiita_dfs,
+          'crestone_qiita_sample_information.tsv')
+```
+
+# **QIITA preparation information file (this one is easier)**
+The code below will add the columns qiita wants in the preparation information file and a column of the sequencing run number for future reference. It will save the resulting dataframe as a variable with the sequencing run number as the name and as a .tsv to your current working directory named "seqRunNumber_qiita_prep_information.tsv". You will need to have a preparation information file for every single sequencing run in your project! You will also need to change the entries of the `make_qiita_prep_info()` function to suit your project. Here's a key of what each required input means:
+
+- input_table = the input dataframe (the for loop does this for you) - this is still the barcodes file!!
+- sampleid_col = what is the name of the sampleid column?
+- barcode_seq_col = what is the name of the barcode sequence column?
+- linker_primer_col = what is the name of the linker primer sequence column?
+- run_date_col = what is the name of the run date column?
+- sub_date_delim = in your run date column, what are the digits between the MMDDYYYY?
+- expDes_description_entry = why did you sequence these samples?
+- library_protocol_entry = what library protocol was used to sequence these samples?
+- linker_entry = what was the linker used? 
+- platform_entry = what platform were the samples sequenced on?
+- run_center_entry = what is the name of the core that sequenced your samples?
+- run_prefix_entry = what is the number of the sequencing run (you shouldn't have to put anything here, the for loop will do it for you)?
+- pcr_primer_entry = what forward and reverse primers were used?
+- seq_method_entry = what method was used to sequence the samples?
+- target_gene_entry = what was the target gene to be sequenced?
+- target_subfragment_entry = what was the target subfragment to be sequenced?
+- center_name_entry = which university/company sequenced the samples?
+- center_project_name_entry = what is the overall name of this project?
+- instrument_model_entry = what instrument model was used to sequence the samples?
+
+
+I've filled in the function below with an example from the c. diff mouse model project I just recently completed at Anschutz. The example is only filled out for `project1` so you'd just have to copy/paste the code below and do the same for `project2`. 
+```{r}
+## creating a named list of barcodes files where the name = the sequencing run number at ACME 
+## so if someone needs the raw sequences later, they'll know which run they were on (this also
+## helps to keep track of multiple different sequencing runs)
+seq_list <- list("LOZ-SEQ103" = S103_barcodes, 
+                 "LOZ-SEQ103b-Nano" = S103b_barcodes,
+                 "LOZ-SEQ104" = S104_barcodes)
+
+## yay! for loop do the work for me
+#### YOU WILL NEED TO REPLACE THE ENTRIES GOING INTO THE FUNCTION THIS IS JUST AN EXAMPLE!!! ####
+for (seq_name in unique(unlist(names(seq_list)))){
+    seq_file_var <- paste0(names(seq_list[seq_name]), "_prep_file")
+    seq_file_name <- paste0(names(seq_list[seq_name]), "_qiita_prep_information.tsv")
+    
+    int_file <- make_qiita_prep_info(input_table = seq_list[[seq_name]],
+                                     sampleid_col = 'SampleID',
+                                     barcode_seq_col = 'BarcodeSequence',
+                                     linker_primer_col = 'LinkerPrimerSequence',
+                                     run_date_col = 'Extraction_Date',
+                                     sub_date_delim = "([.])",
+                                     expDes_description_entry = 
+                                       'Isolated bacteria to describe gut microbiome',
+                                     library_protocol_entry = 'Earth Microbiome Project, 16S',
+                                     linker_entry = 'GT',
+                                     platform_entry = 'Illumina',
+                                     run_center_entry = 
+                                       'Anschutz Center for Microbiome Excellence (ACME)',
+                                     run_prefix_entry = seq_name,
+                                     pcr_primer_entry = 
+                                       'FWD:GTGYCAGCMGCCGCGGTAA; REV:GGACTACNVGGGTWTCTAAT',
+                                     seq_method_entry = 'Sequencing by Synthesis',
+                                     target_gene_entry = '16S rRNA',
+                                     target_subfragment_entry = 'V4',
+                                     center_name_entry = 'University of Colorado Anschutz',
+                                     center_project_name_entry = 'Crestone CRS3123 Phase II',
+                                     instrument_model_entry = 'Illumina MiSeq')
+      
+    
+    ## qiita doesn't want '+' or '-' in sample names so replacing those w nothing
+    ## if you have non-qiita approved sampleids, you can change them here (same as
+    ## sample information file above)
+    proc_int_file <- int_file %>% 
+      mutate(sample_name = paste(gsub(sample_name, pattern = "([-])", replacement = ".")))
+    
+    ## write results out to current working directory as .tsv
+    write_tsv(proc_int_file,
+              file = seq_file_name)
+    
+    ## assign results to variable so can look at them in global environment 
+    assign(seq_file_var,
+           proc_int_file)
+}
+```
+
+Yay!! You should be all done and hopefully these functions made the process a little bit less painful :)
+
