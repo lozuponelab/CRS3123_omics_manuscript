@@ -1,0 +1,82 @@
+## workflow profile
+## specifies resources for certain rules (workflow specific)
+## set via --workflow-profile flag in snakemake command
+executor: slurm
+jobs: 200
+
+default-resources:
+    slurm_partition: "amilan"
+    slurm_account: "amc-general"
+
+## to define resources for a specific rule:
+## NOTE: using cpus_per_task: instead of ntasks: to request number of cores bc we're calling snakemake from within a slurm job already 
+## so it automatically downscales the requested cores to 1 (this is annoying)
+## in alpine, 1 core = 3.75GB memory (divide memory request by 3.75 to get the correct number of cores to request)
+## currently have threading to be 2*number of cores (hardcoded in snakefile)
+set-resources:
+    run_pretrimming_fastqc:
+        runtime: "1h"
+        mem: "1GB"
+        cpus_per_task: 1
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/pretrimming_fastqc/%J.log' '--error=logs/pretrimming_fastqc/%J.err'"
+    run_pretrimming_multiqc:
+        runtime: "1h"
+        mem: "1GB"
+        cpus_per_task: 1
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/pretrimming_multiqc/%J.log' '--error=logs/pretrimming_multiqc/%J.err'" 
+    move_reference_files:
+        runtime: "1h"
+        mem: "1GB"
+        cpus_per_task: 1
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/move_reference_files/%J.log' '--error=logs/move_reference_files/%J.err'" 
+    run_bbduk:
+        runtime: "1h" ## only ran for 3min so maybe leave at an hour
+        mem: "50GB" ## used 98% of 10GB upping to 20GB - super variable per sample, up to 50GB to see if that helps
+        cpus_per_task: 14
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/bbduk_trimmed/%J.log' '--error=logs/bbduk_trimmed/%J.err'"
+    make_bbsplit_index:
+        runtime: "1h" 
+        mem: "40GB" ## got OOM killed at 10 and 20GB
+        cpus_per_task: 11
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/make_bbsplit_index/%J.log' '--error=logs/make_bbsplit_index/%J.err'" 
+    run_bbsplit:
+        runtime: "6h" ## only took 1h for 1 sample, leaving at 6h just in case 
+        mem: "60GB" ## used 50GB so may leave it at this 
+        cpus_per_task: 16
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/bbsplit_filtered/%J.log' '--error=logs/bbsplit_filtered/%J.err'"
+    run_posttrimming_fastqc:
+        runtime: "1h"
+        mem: "1GB"
+        cpus_per_task: 1
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/posttrimming_fastqc/%J.log' '--error=logs/posttrimming_fastqc/%J.err'"
+    run_posttrimming_multiqc:
+        runtime: "1h"
+        mem: "1GB"
+        cpus_per_task: 1
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/posttrimming_multiqc/%J.log' '--error=logs/posttrimming_multiqc/%J.err'"
+    concat_reads:
+        runtime: "1h"
+        mem: "1GB"
+        cpus_per_task: 1
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/concatenated_reads/%J.log' '--error=logs/concatenated_reads/%J.err'"
+    run_humann:
+        runtime: "23.9h"
+        mem: "80GB" ## upping to 80GB bc im nervous some samples are going to get out of memory errors
+        cpus_per_task: 22 ## cpus per task = 80/3.75
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/humann/%J.log' '--error=logs/humann/%J.err'"
+    aggregate_humann:
+        runtime: "23.9h" ## dont think ill need this much time 
+        mem: "20GB" ## upping from 10GB bc i have more samples
+        cpus_per_task: 6 ## cpus per task = 20/3.75
+        nodes: 1
+        slurm_extra: "'--qos=normal' '--output=logs/aggregate_humann_outs/%J.log' '--error=logs/aggregate_humann_outs/%J.err'"

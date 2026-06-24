@@ -1,0 +1,590 @@
+---
+title: "generate_tax_biplot"
+output: html_document
+date: "2025-10-01"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(dplyr)
+library(magrittr)
+library(vroom)
+library(vegan)
+library(phyloseq)
+library(ape)
+library(viridis)
+library(ggrepel)
+library(ggh4x)
+library(ggpubr)
+
+set.seed(5)
+```
+
+**Functions**
+```{r}
+## break this up into two functions?? idk
+calculate_my_biplot_vals <- function(otu_table,
+                                     tax_table,
+                                     nwk_tree,
+                                     weighted_dist = FALSE,
+                                     top_tax_n,
+                                     lines_longer_by,
+                                     metadata_table,
+                                     sample_col_name){
+  ## converting taxonomy to phyloseq object
+  ## has to be a matrix or phyloseq loses its mind
+  bug_tax <- tax_table(as.matrix(tax_table))
+  
+  ## converting otu table to phyloseq object
+  ## taxa are rows, samples are cols 
+  ## tax abundances need to be transformed to relative abundances 
+  ## also making sure that the same sampleids are included in the otu_table as the metadata
+  filt_proc_meta <- filter(metadata_table, metadata_table[[sample_col_name]] %in% colnames(otu_table))
+  filt_otu_table <- select(otu_table, filt_proc_meta[[sample_col_name]])
+  bug_otu <- otu_table(filt_otu_table, taxa_are_rows = TRUE)
+  
+  ## creating phyloseq object of tax, otus, and tree to calculate unifrac distances
+  bug_phyloseq <- phyloseq(bug_otu, nwk_tree, bug_tax)
+  
+  ## calculating unifrac distances 
+  bug_dist <- phyloseq::UniFrac(bug_phyloseq, weighted = weighted_dist)
+  bug_dist_mat <- as.matrix(bug_dist)
+  
+  ## calculating pcoa of distances 
+  bug_pcoa <- ape::pcoa(bug_dist_mat)
+  
+  ## pulling  proportion of variance explained for each axis (only positive relative eigenvalues)
+  ## only positive eigenvalues have pcoa vector calculations 
+  eigenvals <- bug_pcoa$values$Relative_eig
+  pos_eigenvals <- eigenvals[eigenvals > 0]
+  
+  ## putting together axis labels for plots
+  proportion_exp_df <- as.data.frame(pos_eigenvals) %>% 
+    rownames_to_column(var = "axis") %>% 
+    rename(proportion_explained = pos_eigenvals) %>% 
+    mutate(axis_label = paste0('PC', axis, ' - ', round(proportion_explained*100, 2), '%'))
+  
+  ## saving axis labels to a list so can easily be referenced 
+  axis_labs <- proportion_exp_df$axis_label
+  
+  ## pulling out pcoa axis values and setting otu table sampleids as rows 
+  bug_pcoa_vals <- bug_pcoa$vectors
+  transposed_bug_otu <- as.matrix(t(filt_otu_table))
+  
+  ## calculating covariance between pcoa values and otu table counts 
+  covariance <- cov(bug_pcoa_vals, transposed_bug_otu)
+  
+  ## adding taxonomy back up with covariances
+  tax_key_df <- as.data.frame(tax_table)
+  tax_key_df['tax_id'] <- rownames(tax_key_df)
+  
+  ## calculating biplot lines between the first 4 pc axes wanted (1 to 2, 2 to 3, etc)
+  biplot_tax_dist <- covariance %>% 
+    as_tibble(rownames = "axis") %>% 
+    gather(-axis, key = "tax_id", value = "covariance") %>% 
+    spread(key = "axis", value = "covariance") %>% 
+    mutate(dist_origin1to2 = sqrt(Axis.1^2 + Axis.2^2),
+           dist_origin2to3 = sqrt(Axis.2^2 + Axis.3^2),
+           dist_origin3to4 = sqrt(Axis.3^2 + Axis.4^2))
+  
+  ## pulling the distances for the top n tax given by the user for all axes in one table 
+  ## so function only has top be run once
+  top_tax_biplot_lines <- tibble()
+  dist_col_list <- c('dist_origin1to2', 'dist_origin2to3', 'dist_origin3to4')
+  for (dist_calc in dist_col_list){
+    biplot_lines <- biplot_tax_dist %>% 
+      top_n(top_tax_n, .data[[dist_calc]]) %>% 
+      select(tax_id, Axis.1, Axis.2, Axis.3, Axis.4) %>% 
+      mutate(top_tax_axis = paste(dist_calc),
+             across(contains('Axis.'), ~(. *0.4))) %>% 
+      left_join(tax_key_df, by = "tax_id")
+    
+    top_tax_biplot_lines <- rbind(top_tax_biplot_lines, biplot_lines)
+  }
+  
+  ## joining pcoa values with metadata for plotting 
+  biplot_points <- bug_pcoa_vals %>% 
+    as_tibble(rownames = sample_col_name) %>% 
+    select(all_of(sample_col_name), Axis.1, Axis.2, Axis.3, Axis.4) %>% 
+    left_join(filt_proc_meta, by = sample_col_name)
+  
+  ## list of outputs 
+  my_list <- list(PCvar = axis_labs,
+                  DFPoints = biplot_points,
+                  DFLines = top_tax_biplot_lines,
+                  DistMat = bug_dist_mat)
+  return(my_list)
+}
+
+
+## function for making the actual plot
+make_my_biplot <- function(x_axis,
+                           y_axis,
+                           points_df,
+                           points_color,
+                           points_id, 
+                           color_palette,
+                           color_name,
+                           color_labels,
+                           facet_by,
+                           facet_labels,
+                           facet_scales = "fixed",
+                           facet_rows = 1,
+                           lines_df,
+                           lines_label,
+                           lines_label_size,
+                           ellipse = TRUE,
+                           x_name,
+                           y_name,
+                           title_content){
+         plot <- ggplot() +
+                  geom_jitter(data = points_df,
+                             aes(x = .data[[x_axis]], y = .data[[y_axis]], 
+                                 fill = .data[[points_color]]),
+                             size = 5,
+                             alpha = 0.8,
+                             pch = 21) +
+                 geom_line(data = points_df,
+                           aes(x = .data[[x_axis]], y = .data[[y_axis]],
+                               group = .data[[points_id]]),
+                           alpha = 0.3) +
+                 scale_fill_manual(values = color_palette,
+                                    name = color_name,
+                                    labels = color_labels) +
+                  facet_wrap(~.data[[facet_by]],
+                             labeller = labeller(.cols = facet_labels),
+                             scales = facet_scales,
+                             nrow = facet_rows) +
+                  theme_bw(base_size = 20) +
+                  geom_segment(data = lines_df,
+                               aes(x = 0, xend = .data[[x_axis]], y = 0, yend = .data[[y_axis]]),
+                               arrow = arrow(length = unit(0.3, "cm"))) +
+                  geom_text_repel(data = lines_df,
+                                  aes(x = .data[[x_axis]], y = .data[[y_axis]], label = .data[[lines_label]]),
+                                  color = 'black',
+                                  position = 'jitter',
+                                  size = lines_label_size,
+                                  fontface = 'bold') +
+                  labs(x = x_name,
+                       y = y_name,
+                       title = title_content)
+         
+         ## only add ellipses to the plot if input is true 
+         if (isTRUE(ellipse)){
+           plot <- plot +
+                     stat_ellipse(data = points_df,
+                                  geom = "polygon",
+                                  alpha = 0.15,
+                                  aes(x = .data[[x_axis]], y = .data[[y_axis]], fill = .data[[points_color]]))
+         }
+         
+  return(plot)
+}
+```
+
+**File paths**
+```{r}
+## publicly available online through metaphlan resources
+metaphlan_tree_fp <- '../references/mpa_vJun23_CHOCOPhlAnSGB_202307.nwk'
+## not provided due to file size
+bugs_list_fp <- '../data/all_bugs_list.tsv'
+## use the sample metadata from qiita
+meta_fp <- '../../../data_submission/1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+
+## global variables for plot labels
+treat_group_labs <- c('CRS3123_200mg_po_bid' = 'CRS3123 200mg',
+                      'CRS3123_400mg_po_bid' = 'CRS3123 400mg',
+                      'Vancomycin_125mg_po_qid' = 'Vancomycin 125mg')
+
+## taking out subject samples that had a screen but not D1 sample (123-1001)
+take_out_samples <- c('123-1001.1', '123-1001.4')
+
+## putting together custom color palette based on viridis
+# viridis_pal(option = "C", begin = 0, end = 1)(3)
+my_viridis_c_palette <- c("#0D0887FF", "#CC4678FF")
+```
+
+**Reading in files**
+- subject 123-1001 has screen and TOC samples, need to filter out since everyone else has D1 (not sure how this happened?)
+```{r}
+bugs_list <- read_tsv(bugs_list_fp) %>% 
+  filter(!(sampleid %in% take_out_samples))
+tree <- read_tree(metaphlan_tree_fp)
+meta <- read_tsv(meta_fp)
+```
+
+**Data wrangled**
+making bugs list an otu table
+```{r}
+## go down to speciesLevel_genome_bin - all relative abundances add up to 100 per sampleid
+## which is what we want (I think)
+wide_tax <- bugs_list %>% 
+  filter(!is.na(speciesLevel_genome_bin)) %>% 
+  select(!c('relative_abundance', 'additional_species')) %>% 
+  mutate(test = gsub(paste0("|", NCBI_tax_id), pattern = "\\|\\|+$", replacement = "|"),
+         tax_id = str_extract(test, "(?<=\\|)[^|]+(?=\\|[^|]*$)")) %>% 
+  select(tax_id, everything()) %>% 
+  select(!c('NCBI_tax_id', 'test', 'sampleid', 'clade_name', 'speciesLevel_genome_bin')) %>% 
+  distinct(tax_id, .keep_all = TRUE) %>% 
+  column_to_rownames(var = "tax_id")
+```
+
+```{r}
+sample_list <- unique(bugs_list$sampleid)
+
+## may have issues with duplicates since its broken down at every taxonomic level 
+## filled all NAs with 0, idk if that's right either
+wide_bug_otu <- bugs_list %>% 
+  filter(!is.na(speciesLevel_genome_bin)) %>% 
+  select(clade_name, NCBI_tax_id, sampleid, relative_abundance) %>% 
+  spread(key = 'sampleid', value = 'relative_abundance', fill = 0) %>% 
+  group_by(NCBI_tax_id) %>% 
+  summarise(across(all_of(sample_list), sum)) %>% 
+  mutate(test = gsub(paste0("|", NCBI_tax_id), pattern = "\\|\\|+$", replacement = "|"),
+         tax_id = str_extract(test, "(?<=\\|)[^|]+(?=\\|[^|]*$)")) %>% 
+  select(tax_id, everything()) %>% 
+  select(!c('NCBI_tax_id', 'test')) %>% 
+  column_to_rownames(var = "tax_id")
+
+# taxa_names(taxonomy)
+```
+
+metadata processing
+```{r}
+proc_meta <- meta %>%
+  select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>% 
+  rename(sampleid = anonymized_name) %>% 
+  ## matching sampleids with the shotgun data since not all samples were included 
+  filter(sampleid %in% colnames(wide_bug_otu))
+```
+
+creating releveled metadata for adonis testing 
+```{r}
+fact_meta <- proc_meta
+
+## releveling to compare crs to vanc 
+fact_meta$treatment_group <- factor(fact_meta$treatment_group, levels = c(
+  "Vancomycin_125mg_po_qid",
+  "CRS3123_200mg_po_bid",
+  "CRS3123_400mg_po_bid"))
+
+## comparing everything to D1 
+fact_meta$visit_number <- factor(fact_meta$visit_number, levels = c(
+  "2",
+  "4"))
+```
+
+**Calculating UniFrac distances**
+unweighted - stratified by treatment group 
+```{r}
+uu_adonis_strat_treatGroup <- tibble()
+uu_lines_strat_treatGroup <- tibble()
+uu_points_strat_treatGroup <- tibble()
+
+for (treatment in unique(unlist(fact_meta$treatment_group))){
+  mini_meta <- filter(fact_meta, treatment_group == treatment)
+  
+  uu_treatment_biplot <- calculate_my_biplot_vals(otu_table = wide_bug_otu,
+                                                  tax_table = wide_tax,
+                                                  nwk_tree = tree,
+                                                  weighted_dist = FALSE,
+                                                  top_tax_n = 10,
+                                                  metadata_table = mini_meta,
+                                                  sample_col_name = 'sampleid')
+  ## running adonis test
+  tmp_adonis_res <- adonis2(as.dist(uu_treatment_biplot$DistMat) ~ visit_number,
+                            data = mini_meta, 
+                            permutations = 999,
+                            strata = mini_meta$host_subject_id,
+                            by = "terms")
+  
+  uu_adonis_res <- tidy(tmp_adonis_res) %>% 
+    mutate(treatment_group = paste(treatment))
+  
+  uu_treatment_lines <- uu_treatment_biplot$DFLines %>% 
+    mutate(treatment_group = paste(treatment))
+  uu_treatment_points <- uu_treatment_biplot$DFPoints %>% 
+    mutate(treatment_group = paste(treatment))
+  
+  uu_adonis_strat_treatGroup <- rbind(uu_adonis_strat_treatGroup, uu_adonis_res)
+  uu_lines_strat_treatGroup <- rbind(uu_lines_strat_treatGroup, uu_treatment_lines)
+  uu_points_strat_treatGroup <- rbind(uu_points_strat_treatGroup, uu_treatment_points)
+}
+
+uu_adonis_strat_treatGroup$dist <- 'unweighted_unifrac'
+```
+
+unweighted - all treatment groups together to get overall variance explained by an axis 
+```{r}
+uu_biplot <- calculate_my_biplot_vals(otu_table = wide_bug_otu,
+                                      tax_table = wide_tax,
+                                      nwk_tree = tree,
+                                      weighted_dist = FALSE,
+                                      top_tax_n = 10,
+                                      metadata_table = proc_meta,
+                                      sample_col_name = 'sampleid')
+uu_axis_labs <- uu_biplot$PCvar
+uu_biplot_lines <- uu_biplot$DFLines
+uu_biplot_points <- uu_biplot$DFPoints
+uu_biplot_dist_mat <- uu_biplot$DistMat
+```
+
+unweighted - overall adonis test 
+```{r}
+uu_biplot_adonis_overall <- adonis2(as.dist(uu_biplot_dist_mat) ~ visit_number * treatment_group,
+                                    data = fact_meta, 
+                                    permutations = 999,
+                                    strata = fact_meta$host_subject_id,
+                                    by = "terms")
+
+(uu_biplot_adonis_overall_df <- tidy(uu_biplot_adonis_overall) %>% 
+  mutate(dist = 'unweighted_unifrac'))
+```
+
+unweighted unifrac biplots
+```{r, fig.width=25, fig.height=8}
+(shotgun_uu_biplot_1to2 <- make_my_biplot(x_axis = 'Axis.1',
+                                 y_axis = 'Axis.2',
+                                 points_df = uu_points_strat_treatGroup,
+                                 points_color = 'visit',
+                                 points_id = 'host_subject_id',
+                                 color_palette = my_viridis_c_palette,
+                                 color_name = 'Visit',
+                                 color_labels = c('D1', 'TOC'),
+                                 facet_by = 'treatment_group',
+                                 facet_labels = treat_group_labs,
+                                 facet_scales = "free",
+                                 facet_rows = 1,
+                                 lines_df = filter(uu_lines_strat_treatGroup, top_tax_axis == 'dist_origin1to2'),
+                                 lines_label = 'species',
+                                 lines_label_size = 5.5,
+                                 ellipse = TRUE,
+                                 x_name = uu_axis_labs[1],
+                                 y_name = uu_axis_labs[2],
+                                 title_content = 'PC1-PC2: Unweighted UniFrac Biplot'))
+
+(shotgun_uu_biplot_2to3 <- make_my_biplot(x_axis = 'Axis.2',
+                                 y_axis = 'Axis.3',
+                                 points_df = uu_points_strat_treatGroup,
+                                 points_color = 'visit',
+                                 points_id = 'host_subject_id',
+                                 color_palette = my_viridis_c_palette,
+                                 color_name = 'Visit',
+                                 color_labels = c('D1', 'TOC'),
+                                 facet_by = 'treatment_group',
+                                 facet_labels = treat_group_labs,
+                                 facet_scales = "free",
+                                 facet_rows = 1,
+                                 lines_df = filter(uu_lines_strat_treatGroup, top_tax_axis == 'dist_origin2to3'),
+                                 lines_label = 'species',
+                                 lines_label_size = 5.5,
+                                 ellipse = TRUE,
+                                 x_name = uu_axis_labs[2],
+                                 y_name = uu_axis_labs[3],
+                                 title_content = 'PC2-PC3: Unweighted UniFrac Biplot'))
+```
+
+weighted - stratified by treatment group 
+```{r}
+wu_adonis_strat_treatGroup <- tibble()
+wu_lines_strat_treatGroup <- tibble()
+wu_points_strat_treatGroup <- tibble()
+
+for (treatment in unique(unlist(fact_meta$treatment_group))){
+  mini_meta <- filter(fact_meta, treatment_group == treatment)
+  
+  wu_treatment_biplot <- calculate_my_biplot_vals(otu_table = wide_bug_otu,
+                                                  tax_table = wide_tax,
+                                                  nwk_tree = tree,
+                                                  weighted_dist = TRUE,
+                                                  top_tax_n = 10,
+                                                  metadata_table = mini_meta,
+                                                  sample_col_name = 'sampleid')
+  ## running adonis test
+  tmp_adonis_res <- adonis2(as.dist(wu_treatment_biplot$DistMat) ~ visit_number,
+                            data = mini_meta, 
+                            permutations = 999,
+                            strata = mini_meta$host_subject_id,
+                            by = "terms")
+  
+  wu_adonis_res <- tidy(tmp_adonis_res) %>% 
+    mutate(treatment_group = paste(treatment))
+  
+  wu_treatment_lines <- wu_treatment_biplot$DFLines %>% 
+    mutate(treatment_group = paste(treatment))
+  wu_treatment_points <- wu_treatment_biplot$DFPoints %>% 
+    mutate(treatment_group = paste(treatment))
+  
+  wu_adonis_strat_treatGroup <- rbind(wu_adonis_strat_treatGroup, wu_adonis_res)
+  wu_lines_strat_treatGroup <- rbind(wu_lines_strat_treatGroup, wu_treatment_lines)
+  wu_points_strat_treatGroup <- rbind(wu_points_strat_treatGroup, wu_treatment_points)
+}
+
+wu_adonis_strat_treatGroup$dist <- 'weighted_unifrac'
+```
+
+weighted - all treatment groups together to get overall variance explained by an axis 
+```{r}
+wu_biplot <- calculate_my_biplot_vals(otu_table = wide_bug_otu,
+                                      tax_table = wide_tax,
+                                      nwk_tree = tree,
+                                      weighted_dist = TRUE, ## change to TRUE for weighted unifrac calc
+                                      top_tax_n = 10,
+                                      metadata_table = proc_meta,
+                                      sample_col_name = 'sampleid')
+wu_axis_labs <- wu_biplot$PCvar
+wu_biplot_lines <- wu_biplot$DFLines
+wu_biplot_points <- wu_biplot$DFPoints
+wu_biplot_dist_mat <- wu_biplot$DistMat
+```
+
+weighted - overall adonis test 
+```{r}
+## shouldnt need to relevel metadata since ive already done that above 
+wu_biplot_adonis_overall <- adonis2(as.dist(wu_biplot_dist_mat) ~ visit_number * treatment_group,
+                                    data = fact_meta, 
+                                    permutations = 999,
+                                    strata = fact_meta$host_subject_id,
+                                    by = "terms")
+
+(wu_biplot_adonis_overall_df <- tidy(wu_biplot_adonis_overall) %>% 
+  mutate(dist = 'weighted_unifrac'))
+```
+
+weighted unifrac biplots
+```{r, fig.width=25, fig.height=8}
+(shotgun_wu_biplot_1to2 <- make_my_biplot(x_axis = 'Axis.1',
+                                  y_axis = 'Axis.2',
+                                  points_df = wu_points_strat_treatGroup,
+                                  points_color = 'visit',
+                                  points_id = 'host_subject_id',
+                                  color_palette = my_viridis_c_palette,
+                                  color_name = 'Visit',
+                                  color_labels = c('D1', 'TOC'),
+                                  facet_by = 'treatment_group',
+                                  facet_labels = treat_group_labs,
+                                  facet_scales = "free",
+                                  facet_rows = 1,
+                                  lines_df = filter(wu_lines_strat_treatGroup, top_tax_axis == 'dist_origin1to2'),
+                                  lines_label = 'species',
+                                  lines_label_size = 5.5,
+                                  ellipse = TRUE,
+                                  x_name = wu_axis_labs[1],
+                                  y_name = wu_axis_labs[2],
+                                  title_content = 'PC1-PC2: Weighted UniFrac Biplot'))
+
+(shotgun_wu_biplot_2to3 <- make_my_biplot(x_axis = 'Axis.2',
+                                  y_axis = 'Axis.3',
+                                  points_df = wu_points_strat_treatGroup,
+                                  points_color = 'visit',
+                                  points_id = 'host_subject_id',
+                                  color_palette = my_viridis_c_palette,
+                                  color_name = 'Visit',
+                                  color_labels = c('D1', 'TOC'),
+                                  facet_by = 'treatment_group',
+                                  facet_labels = treat_group_labs,
+                                  facet_scales = "free",
+                                  facet_rows = 1,
+                                  lines_df = filter(wu_lines_strat_treatGroup, top_tax_axis == 'dist_origin2to3'),
+                                  lines_label = 'species',
+                                  lines_label_size = 5.5,
+                                  ellipse = TRUE,
+                                  x_name = wu_axis_labs[2],
+                                  y_name = wu_axis_labs[3],
+                                  title_content = 'PC2-PC3: Weighted UniFrac Biplot'))
+```
+
+**calculating alpha rarefaction curve**
+- need to take it out of relative abundance to just raw counts for vegan::rarecurve()
+```{r}
+## making sampleids rows and taxa cols
+test <- as.data.frame(t(wide_bug_otu)) 
+## calculating total for each sampleid (taking it out of rel abun step 1)
+test$RowTotal <- apply(test, MARGIN = 1, FUN = sum, na.rm = TRUE)
+## saving those values
+multiplier_col <- test$RowTotal
+## taking out total abun col
+test <- test[, !(names(test) == 'RowTotal')]
+## multiplying all rel abunds for a sample by the total abun (taking it out of rel abun step 2)
+res_test <- apply(test, 1, "*", multiplier_col)
+## rounding to nearest integer
+round_res_test <- round(res_test)
+## multiplication step transposes df so transposing it back so sampleids are rows
+proc_res_test <- t(round_res_test)
+
+## calculate alpha rarefaction curve to determine of sequencing depth covers microbial diversity of sample
+vegan::rarecurve(proc_res_test, label = T)
+```
+
+
+**Saving my outputs**
+
+**adonis2 permanvoa stat results**
+```{r}
+## overall adonis (takes into account time and treatment group with crs compared to vanc and toc compared to d1)
+allDist_overall_adonis <- rbind(uu_biplot_adonis_overall_df,
+                                wu_biplot_adonis_overall_df)
+
+write_tsv(allDist_overall_adonis,
+          file = '../stats/overall_unifrac_biplot_adonis.tsv')
+
+## per treatment group adonis (takes into account time, comparing toc to d1 per treatment group)
+allDist_strat_treatGroup_adonis <- rbind(uu_adonis_strat_treatGroup,
+                                         wu_adonis_strat_treatGroup)
+
+write_tsv(allDist_strat_treatGroup_adonis,
+          file = '../stats/by_treatGroup_unifrac_biplot_adonis.tsv')
+```
+
+```{r}
+save(list = c('shotgun_uu_biplot_1to2',
+                          'shotgun_uu_biplot_2to3',
+                          'shotgun_wu_biplot_1to2',
+                          'shotgun_wu_biplot_2to3'),
+                 file = '../../../manuscript_figures/ggplots/shotgun_biplots.rdat')
+```
+
+```{r}
+ggsave('../plots/uu_biplot_1to2.pdf',
+       plot = shotgun_uu_biplot_1to2,
+       width = 25,
+       height = 8)
+ggsave('../plots/pngs/uu_biplot_1to2.png',
+       plot = shotgun_uu_biplot_1to2,
+       width = 25,
+       height = 8)
+
+ggsave('../plots/uu_biplot_2to3.pdf',
+       plot = shotgun_uu_biplot_2to3,
+       width = 25,
+       height = 8)
+ggsave('../plots/pngs/uu_biplot_2to3.png',
+       plot = shotgun_uu_biplot_2to3,
+       width = 25,
+       height = 8)
+
+ggsave('../plots/wu_biplot_1to2.pdf',
+       plot = shotgun_wu_biplot_1to2,
+       width = 25,
+       height = 8)
+ggsave('../plots/pngs/wu_biplot_1to2.png',
+       plot = shotgun_wu_biplot_1to2,
+       width = 25,
+       height = 8)
+
+ggsave('../plots/wu_biplot_2to3.pdf',
+       plot = shotgun_wu_biplot_2to3,
+       width = 25,
+       height = 8)
+ggsave('../plots/pngs/wu_biplot_2to3.png',
+       plot = shotgun_wu_biplot_2to3,
+       width = 25,
+       height = 8)
+```
+

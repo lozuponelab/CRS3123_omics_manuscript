@@ -1,0 +1,888 @@
+---
+title: "shotgun_ko_mapping"
+output: html_document
+date: "2025-07-29"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(dplyr)
+library(magrittr)
+library(vroom)
+library(vegan)
+library(clusterProfiler)
+library(fgsea)
+library(Biobase)
+library(ggVennDiagram)
+library(plotly)
+library(htmlwidgets)
+library(ggpubr)
+library(viridis)
+```
+
+## **Functions**
+```{r}
+source("../art_lmer_functions.R")
+
+## this function will filter out low abundance kos (or other variables) based on the percentage of samples its present in
+## input table NEEDS to be in wide format with the kos/variables as the columns and the sampleids as the rownames
+## this function uses the rownames to calculate the number of samples 
+filter_low_abun <- function(wide_input_table,
+                            percent_include){
+  ## calculating the number of samples that the ko needs to be present in (i.e. not zero)
+  ## this is rounded to the nearest whole number
+  num_samples <- length(rownames(wide_input_table))
+  thresh_perc <- ceiling(percent_include * num_samples)
+
+  ## per column, count how many samples have a value greater than 0?
+  ## doing colSums() bc my df is in wide format, can use rowSums() if your df is in long format
+  counts_greaterThan_zero <- colSums(wide_input_table > 0)
+  
+  ## selecting the columns (aka. kos) that are greater than or equal to the threshold 
+  thresh_filt_wideTable <- wide_input_table[ ,counts_greaterThan_zero >= thresh_perc]
+  
+  ## calculating variance between kos (could be something else too)
+  variance_table <- data.frame()
+  for (column in unlist(colnames(thresh_filt_wideTable))){
+    col_variance <- var(thresh_filt_wideTable[column])
+    
+    col_df <- data.frame("category" = c(column),
+                         "variance" = c(col_variance))
+    
+    variance_table <- rbind(variance_table, col_df)
+  }
+  
+  ## output list 
+  my_list = list(threshFiltWideTable = thresh_filt_wideTable,
+                 VarianceTable = variance_table)
+  return(my_list)
+}
+
+## this function takes the GMM .txt input and reformats it for fgsea 
+make_pretty_gmm <- function(gmm_filepath,
+                            return_df = FALSE){
+  ## read in the lines of the .txt file so I can mess w the strings without weird formatting
+  raw_gmms <- readLines(gmm_filepath)
+  ## collapse into one giant line based on the newline character
+  collapsed_gmms <- paste(raw_gmms, collapse = "\n")
+  ## split to separate lines based on /// at start/end of line
+  split_gmms <- str_split(collapsed_gmms, "(?s)///(.*?)///")[[1]]
+  ## trim awkward white space off of lines
+  trimmed_gmms <- str_trim(split_gmms)
+  ## replace physical \t, \n, and /// with a space
+  clean_gmms <- str_replace_all(trimmed_gmms, "[\\t\\n,///]", " ")
+  
+  ## convert to dataframe!
+  gmm_df <- as.data.frame(clean_gmms)
+  
+  ## split lines into a modules column and a kos column where the kos are a character vector 
+  pretty_gmm_df <- gmm_df %>% 
+    ## pull all parts of the string before you hit anything that starts with a K
+    ## pull all parts of the string that start with a K
+    ## replace all spaces with underscores
+    mutate(modules = str_match(clean_gmms, "^([^K]*).*?$")[ ,2],
+           kos = str_match(clean_gmms, "^[^K]*(.*?)$")[ ,2],
+           kos = str_split(kos, pattern = " "),
+           modules = str_replace_all(str_trim(modules), "(\\s)", "_")) %>% 
+    select(-clean_gmms)
+  
+  ## creating named list with the modules as names and kos as values for fgsea
+  gmmList <- setNames(pretty_gmm_df$kos, pretty_gmm_df$modules)
+  
+  ## based on function input, return either the dataframe or the list 
+  if (return_df == TRUE){
+    return(pretty_gmm_df)
+  } else {
+    return(gmmList)
+  }
+}
+
+## calculate log2foldchange between two variables in a column 
+## takes an input table in long format 
+calculate_log2fc <- function(long_input_table,
+                             group_by_cols,
+                             counts_col,
+                             variable_col,
+                             var1,
+                             var2,
+                             exp_var_cols){
+  ## calculating log2fc between variable 1 and variable 2 on a per sample basis 
+  perSample_lfc <- long_input_table %>% 
+    group_by(across(all_of(group_by_cols))) %>%
+    summarise(mean_counts = mean(.data[[counts_col]])) %>%
+    ungroup() %>%
+    spread(key = .data[[variable_col]], value = mean_counts) %>%
+    mutate(log2fc_counts = log2(.data[[var1]]) - log2(.data[[var2]]),
+           fold_change_counts = (.data[[var1]]/.data[[var2]])) %>% 
+    na.omit()
+
+  ## calculating mean log2fc based on experimental variables (i.e. time points, measures, treatment groups, etc)
+  perExp_var_lfc <- perSample_lfc %>%
+    filter(log2fc_counts != "NaN") %>%
+    group_by(across(all_of(exp_var_cols))) %>%
+    summarise(overall_log2fc = mean(log2fc_counts))
+  
+  ## output list
+  my_list <- list(SampleLFC = perSample_lfc,
+                  ExpVarLFC = perExp_var_lfc)
+  return(my_list)
+}
+
+## creates gsea results plot!
+fun_gsea_plot <- function(input_table,
+                          x_axis,
+                          y_axis,
+                          facet_by,
+                          facet_labs,
+                          row_num,
+                          fill_by,
+                          size_by,
+                          size_name,
+                          legend_name,
+                          plot_title,
+                          x_name,
+                          y_name){
+  
+  y_labs <- input_table[[y_axis]]
+  y_labs_wrapped <- stringr::str_wrap(y_labs, 15)
+  names(y_labs_wrapped) <- paste(input_table[[y_axis]], input_table[[facet_by]], sep = ".")
+
+  ## calculate 3 breaks in the range of gene counts for the data and round it to the nearest 10
+  size_breaks <- round(seq(from = min(input_table[[size_by]]), to = max(input_table[[size_by]]),
+                     by = (max(input_table[[size_by]]) - min(input_table[[size_by]]))/2), digits = -1)
+  
+  
+  plot <- input_table %>% 
+    ggplot(aes(x = .data[[x_axis]], y = reorder_within(.data[[y_axis]], .data[[x_axis]],
+                                                       .data[[facet_by]], sep = "."))) +
+    geom_point(aes(fill = .data[[fill_by]], size = .data[[size_by]]),
+               color = 'black', pch = 21, alpha = 0.7) +
+    scale_fill_gradientn(colors = c("#F0F921FF", "#CC4678FF", "#0D0887FF"),
+                         guide = guide_colorbar(reverse = TRUE),
+                         name = legend_name) +
+    facet_wrap(~.data[[facet_by]],
+               scales = "free_y",
+               nrow = row_num,
+               labeller = labeller(.cols = facet_labs)) +
+    geom_vline(xintercept = 0, linetype = 'dashed', linewidth = 0.8, color = 'black') +
+    scale_size_continuous(range = c(4, 12),
+                          breaks = size_breaks, 
+                          name = size_name) +
+    scale_y_discrete(labels = y_labs_wrapped) +
+    theme_bw(base_size = 20) +
+    labs(title = plot_title,
+         x = x_name,
+         y = y_name)
+  return(plot)
+}
+```
+
+## **File paths**
+```{r}
+## files not provided on repository due to size
+noTax_ko_counts_fp <- '../data/aggregated/noTax_koCounts.tsv.gz'
+withTax_ko_counts_fp <- '../data/aggregated/withTax_koCounts.tsv.gz'
+## use the sample metadata from qiita
+meta_fp <- '../../../data_submission/1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+gmms_fp <- '../data/GMMs.v1.07.txt'
+
+## global label names
+treat_group_labs <- c('CRS3123 200mg',
+                      'CRS3123 400mg',
+                      'Vancomycin 125mg')
+names(treat_group_labs) <- c('CRS3123_200mg_po_bid',
+                             'CRS3123_400mg_po_bid',
+                             'Vancomycin_125mg_po_qid')
+```
+
+## **Reading in files**
+
+```{r}
+noTax_ko_counts_df <- read_tsv(noTax_ko_counts_fp)
+
+withTax_ko_counts_df <- read_tsv(withTax_ko_counts_fp)
+
+meta <- read_tsv(meta_fp)
+```
+
+## **Data wrangled**
+
+**putting together metadata**
+```{r}
+proc_meta <- meta %>%
+  select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>%
+  rename(sampleid = anonymized_name,
+         subject_id = host_subject_id,
+         new_visit_label = visit,
+         new_visit_num = visit_number)
+```
+
+**calculating variance per ko for all samples to filter out the ones that don't change**
+- also need to sum normalize the samples to account for sequencing depth - DONE
+  - to filter or not to filter out the unmapped reads before sum normalization??
+    - depends on the research question 
+    - if you sum normalize with the unmapped reads filtered out, this will give you the relative proportions of known           functional pathways and is better if thats what you want to focus on 
+    - if you leave the unmapped reads in for sum normalization, this will give more information about the overall read          mass distribution and allows you to account for the proportion of reads that couldnt be classified
+    - you should still include the proportion of unmapped reads in information for the paper regardless if they're              included in the normalization - these could also be used as covariates in statistical models later on 
+    - could also used cpm normalization for these
+    
+```{r}
+wide_sumNorm_koCounts <- noTax_ko_counts_df %>% 
+  group_by(sampleid) %>% 
+  mutate(sum_norm_counts = relative_counts/sum(relative_counts)) %>% 
+  select(sampleid, ko, sum_norm_counts) %>% 
+  spread(key = ko, value = sum_norm_counts) %>% 
+  column_to_rownames(var = 'sampleid')
+```
+
+testing threshold function 
+- present in 30-40% of samples! dont want to be above 50% 
+40% = 3719 kos
+30% = 3916 kos
+25% = 4014 kos
+only a 322 ko difference 
+```{r}
+thresh40_wide_sumNorm_koCounts <- filter_low_abun(wide_input_table = wide_sumNorm_koCounts,
+                                                  percent_include = 0.4)$threshFiltWideTable
+
+thresh25_wide_sumNorm_koCounts <- filter_low_abun(wide_input_table = wide_sumNorm_koCounts,
+                                                  percent_include = 0.25)$threshFiltWideTable
+
+thresh30_wide_sumNorm_koCounts <- filter_low_abun(wide_input_table = wide_sumNorm_koCounts,
+                                                  percent_include = 0.30)$threshFiltWideTable
+```
+
+**matching filtered kos with metadata**
+```{r}
+koCounts_w_meta <- thresh30_wide_sumNorm_koCounts %>% 
+  rownames_to_column(var = "sampleid") %>% 
+  gather(-sampleid, key = "ko", value = "sum_norm_counts") %>% 
+  left_join(proc_meta, by = "sampleid") %>% 
+  ## adding arbitrary epsilon thats half the smallest value (that isn't zero)
+  mutate(sum_norm_counts_epsilon = sum_norm_counts + (min(sum_norm_counts[sum_norm_counts != 0])/2)) %>% 
+  filter(new_visit_num != 1)
+```
+
+with tax info - filtered based on the kos included in the 30% threshold, excludes 0s so gene counts per taxa are relative to what's actually there
+```{r}
+proc_withTax_ko_counts_df <- withTax_ko_counts_df %>% 
+  filter(ko %in% koCounts_w_meta$ko,
+         relative_counts != 0) %>% 
+  group_by(sampleid, ko) %>% 
+  mutate(sum_norm_counts = relative_counts/sum(relative_counts),
+         sum_norm_counts_epsilon = sum_norm_counts + (min(sum_norm_counts[sum_norm_counts != 0])/2)) %>% 
+  left_join(proc_meta, by = "sampleid")
+```
+
+
+creating table of non-filtered kos for fgsea (to see if that helps)
+```{r}
+full_koCounts_w_meta <- wide_sumNorm_koCounts %>% 
+  rownames_to_column(var = "sampleid") %>% 
+  gather(-sampleid, key = "ko", value = "sum_norm_counts") %>% 
+  left_join(proc_meta, by = "sampleid") %>% 
+  ## adding arbitrary epsilon thats half the smallest value (that isn't zero)
+  mutate(sum_norm_counts_epsilon = sum_norm_counts + (min(sum_norm_counts[sum_norm_counts != 0])/2)) %>% 
+  filter(new_visit_num != 1)
+```
+
+**prepping GMMs to be run through GSEA**
+putting gmms into correct format for fgsea (I think)
+```{r}
+pretty_gmm_df <- make_pretty_gmm(gmm_filepath = gmms_fp,
+                                 return_df = TRUE)
+
+pretty_gmm_list <- make_pretty_gmm(gmm_filepath = gmms_fp,
+                                   return_df = FALSE)
+```
+
+
+## **Running GSEA!!**
+
+**between treatment groups at a particular visit**
+- calculating log fold change between treatment groups at a time point 
+c("CRS3123_200mg_po_bid", "CRS3123_400mg_po_bid", "Vancomycin_125mg_po_qid")
+
+i actually dont mind this method - i just have to recalculate everything for every comparison between treatment groups (so three times)
+```{r}
+between_treatGroup_list <- list("vanc_200" = list("wanted_var1" = "CRS3123_200mg_po_bid",
+                                                  "wanted_var2" = "Vancomycin_125mg_po_qid",
+                                                  "plot_title" = 
+                                                    "Pathways Enriched in CRS3123 200mg\nvs Vancomycin 125mg"),
+                                "vanc_400" = list("wanted_var1" = "CRS3123_400mg_po_bid",
+                                                  "wanted_var2" = "Vancomycin_125mg_po_qid",
+                                                  "plot_title" = 
+                                                    "Pathways Enriched in CRS3123 400mg\nvs Vancomycin 125mg"),
+                                "crs200_400" = list("wanted_var1" = "CRS3123_400mg_po_bid",
+                                                  "wanted_var2" = "CRS3123_200mg_po_bid",
+                                                  "plot_title" = 
+                                                    "Pathways Enriched in CRS3123 400mg\nvs CRS3123 200mg"))
+```
+
+```{r, fig.width=17, fig.height=9}
+allComp_cp_gsea_res <- tibble()
+
+for (comparison in unlist(names(between_treatGroup_list))){
+  wanted_var1 <- between_treatGroup_list[[comparison]][['wanted_var1']]
+  wanted_var2 <- between_treatGroup_list[[comparison]][['wanted_var2']]
+  comb_table_name <- paste(comparison, 'cp_gsea_res', sep = '_')
+  comb_plot_name <- paste(comparison, 'gsea_plot', sep = '_')
+  
+  ## calculate log2 fold change 
+  treatGroup_ko_lfcs <- calculate_log2fc(long_input_table = koCounts_w_meta,
+                                         group_by_cols = c('ko', 'new_visit_num', 'treatment_group'),
+                                         counts_col = 'sum_norm_counts_epsilon',
+                                         variable_col = 'treatment_group',
+                                         var1 = wanted_var1,
+                                         var2 = wanted_var2,
+                                         exp_var_cols = c('ko', 'new_visit_num'))
+  
+  perSample_treatGroup_koLfc <- treatGroup_ko_lfcs$SampleLFC
+  perKO_treatGroup_lfc <- treatGroup_ko_lfcs$ExpVarLFC %>% 
+    mutate(new_visit_num = ifelse(new_visit_num == 2, 'd1', 'toc'))
+  
+  ## putting together the entry for the two treatment groups the lfc was calculated between 
+  tested_vars <- paste0(wanted_var1, "-", wanted_var2)
+  
+  ## doing this per visit for average lfcs bc fgsea doesnt like multiples of kos
+  ## have to rank and create lists per visit
+  for (visit in unique(unlist(perKO_treatGroup_lfc$new_visit_num))){
+    list_var_name <- paste0(tolower(visit), ".", "kosOverall_arrangedList")
+    gsea_var_name <- paste0(tolower(visit), ".", "gsea_res")
+    cp_gsea_var_name <- paste0(tolower(visit), ".", "cp_gsea_res")
+    
+    arranged <- perKO_treatGroup_lfc %>% 
+      filter(new_visit_num == visit) %>% 
+      arrange(desc(overall_log2fc))
+    
+    arrangedList <- setNames(arranged$overall_log2fc, arranged$ko)
+    
+    assign(list_var_name,
+           arrangedList)
+    
+    gsea_res <- fgsea(pathways = pretty_gmm_list,
+                      stats = arrangedList,
+                      minSize = 5,
+                      maxSize = 1000)
+    
+    gsea_res[['visit']] <- visit
+    gsea_res[['compared_groups']] <- tested_vars
+    
+    assign(gsea_var_name,
+           gsea_res)
+    
+    cp_gsea <- gseKEGG(geneList = arrangedList,
+                           organism = "ko",
+                           keyType = "kegg",
+                           verbose = TRUE,
+                           minGSSize = 5,
+                           maxGSSize = 1000,
+                           pvalueCutoff = 1.0,
+                           seed = TRUE,
+                           by = "fgsea")
+    
+    cp_gsea_res <- cp_gsea@result
+    
+    cp_gsea_res[['visit']] <- visit
+    cp_gsea_res[['compared_groups']] <- tested_vars
+    
+    assign(cp_gsea_var_name,
+           cp_gsea_res)
+  }
+  
+  ## ggplot title
+  
+  visit_cp_gsea_res <- rbind(d1.cp_gsea_res,
+                             toc.cp_gsea_res) %>% 
+    filter(p.adjust <= 0.05)
+
+  
+  allComp_cp_gsea_res <- bind_rows(allComp_cp_gsea_res, visit_cp_gsea_res)
+}
+```
+
+**between treatment groups plots - TOC**
+since im calculating the log2 fold change with treatment group1-treatment group2 (using treatment group 2 as the baseline for the other), these results show how pathways have changed in treatment group1 relative to treatment group2 (i think). positive values mean the pathways are more represented in treatment group2 and negative values mean the pathways are less represented in treatment group2.
+```{r, fig.width=18, fig.height=6.5}
+comp_labs <- c('CRS3123_200mg_po_bid-Vancomycin_125mg_po_qid' = 
+                 'CRS3123 200mg\n(higher if NES > 0)\nvs\nVancomycin 125mg\n(higher if NES < 0)',
+               'CRS3123_400mg_po_bid-Vancomycin_125mg_po_qid' = 
+                 'CRS3123 400mg\n(higher if NES > 0)\nvs\nVancomycin 125mg\n(higher if NES < 0)',
+               'CRS3123_400mg_po_bid-CRS3123_200mg_po_bid' = 
+                 'CRS3123 400mg\n(higher if NES > 0)\nvs\nCRS3123 200mg\n(higher if NES < 0)')
+
+toc_allComp_cp_gsea_res  <- allComp_cp_gsea_res %>% 
+  filter(visit == "toc") %>% 
+  mutate(compared_groups = factor(compared_groups, levels = c('CRS3123_200mg_po_bid-Vancomycin_125mg_po_qid',
+                                                              'CRS3123_400mg_po_bid-Vancomycin_125mg_po_qid',
+                                                              'CRS3123_400mg_po_bid-CRS3123_200mg_po_bid')))
+
+## maybe put text under plots to indicate where pathways are represented more based on NES?
+(toc_gsea_plot <- fun_gsea_plot(input_table = toc_allComp_cp_gsea_res,
+                                   x_axis = 'NES',
+                                   y_axis = 'Description',
+                                   facet_by = 'compared_groups',
+                                   facet_labs = comp_labs,
+                                   row_num = 1,
+                                   fill_by = 'p.adjust',
+                                   size_by = 'setSize',
+                                   size_name = 'Gene\nCounts',
+                                   legend_name = 'Adjusted\nP-value',
+                                   plot_title = 'Pathway Representation between Treatment Groups at TOC',
+                                   x_name = 'Normalized Enrichment Score (NES)',
+                                   y_name = 'Pathway'))
+```
+
+**between treatment groups plots - D1**
+```{r, fig.width=23, fig.height=10}
+d1_allComp_cp_gsea_res  <- allComp_cp_gsea_res %>% 
+  filter(visit == "d1") %>% 
+  mutate(compared_groups = factor(compared_groups, levels = c('CRS3123_200mg_po_bid-Vancomycin_125mg_po_qid',
+                                                              'CRS3123_400mg_po_bid-Vancomycin_125mg_po_qid',
+                                                              'CRS3123_400mg_po_bid-CRS3123_200mg_po_bid')))
+
+## maybe put text under plots to indicate where pathways are represented more based on NES?
+(d1_gsea_plot <- fun_gsea_plot(input_table = d1_allComp_cp_gsea_res,
+                                   x_axis = 'NES',
+                                   y_axis = 'Description',
+                                   facet_by = 'compared_groups',
+                                   facet_labs = comp_labs,
+                                   row_num = 1,
+                                   fill_by = 'p.adjust',
+                                   size_by = 'setSize',
+                                   size_name = 'Gene\nCounts',
+                                   legend_name = 'Adjusted\nP-value',
+                                   plot_title = 'Pathway Representation between Treatment Groups at Baseline (D1)',
+                                   x_name = 'Normalized Enrichment Score (NES)',
+                                   y_name = 'Pathway'))
+```
+
+
+different way of combining plots 
+```{r, fig.width=12, fig.height=6.5}
+comp_labs <- c('CRS3123_200mg_po_bid-Vancomycin_125mg_po_qid' = 'CRS3123 200mg vs\nVancomycin 125mg',
+               'CRS3123_400mg_po_bid-Vancomycin_125mg_po_qid' = 'CRS3123 400mg vs\nVancomycin 125mg')
+
+visit_labs <- c("toc" = "TOC",
+                "d1" = "D1")
+##compared_groups %in% names(comp_labs)
+v2toc_allComp_cp_gsea_res  <- allComp_cp_gsea_res %>% 
+  filter(visit == "toc") %>% 
+  mutate(new_NES = ifelse(compared_groups == 'CRS3123_400mg_po_bid-Vancomycin_125mg_po_qid', 
+                          ifelse(setSize >= 140, NES + 0.6, NES + 0.25), NES), 
+         NES_labels = ifelse(NES < 0, "higher in denom", "higher in num"))
+
+
+fun_gsea_plot(input_table = v2toc_allComp_cp_gsea_res,
+                                   x_axis = 'new_NES',
+                                   y_axis = 'Description',
+                                   facet_by = 'NES_labels',
+                                   facet_labs = visit_labs,
+                                   row_num = 1,
+                                   fill_by = 'p.adjust',
+                                   size_by = 'setSize',
+                                   size_name = 'Gene\nCounts',
+                                   legend_name = 'Adjusted\nP-value',
+                                   plot_title = 'Pathway Representation',
+                                   x_name = 'Normalized Enrichment Score (NES)',
+                                   y_name = 'Pathway') +
+  facet_wrap(~NES_labels, strip.position = "bottom",
+             scales = "free_x") +
+  scale_x_continuous(expand = c(0,0)) +
+  theme(strip.text = element_text(size = 15), 
+        strip.placement = 'outside',
+        panel.spacing.x = unit(0, "lines"))
+```
+
+save the plots as pdfs and pngs
+```{r}
+ggsave('../plots/pathEnrich_toc_allTreat.pdf',
+       plot = toc_gsea_plot,
+       width = 18,
+       height = 6.5)
+ggsave('../plots/pngs/pathEnrich_toc_allTreat.png',
+       plot = toc_gsea_plot,
+       width = 18,
+       height = 6.5)
+
+ggsave('../plots/pathEnrich_d1_allTreat.pdf',
+       plot = d1_gsea_plot,
+       width = 23,
+       height = 10)
+ggsave('../plots/pngs/pathEnrich_d1_allTreat.png',
+       plot = d1_gsea_plot,
+       width = 23,
+       height = 10)
+```
+
+
+**between visits for a particular treatment group**
+attempting to run fgsea
+- i wonder if i should put the non-filtered kos into this bc right now i only have kos that are included in 40% of samples
+- getting this error: means that i have the same lfc values for multiple KOs, if greater than 10% should be worried 
+
+  Warning in preparePathwaysAndStats(pathways, stats, minSize, maxSize, gseaParam,  :
+    There are ties in the preranked stats (0.22% of the list).
+  The order of those tied genes will be arbitrary, which may produce unexpected results.
+
+- pathways that are up: ES > 0
+- pathways that are down: ES < 0 
+- p-value is adjusted via BH (FDR)
+- ES = enrichment score
+- NES = normalized enrichment score (normalized to mean enrichment of random samples of the same size)
+
+for loop to create ranked lists for treatment groups and run fgsea
+
+i think what these results are showing me is that normal pathways for bacterial growth went down when abx treatment started and after abx treatment, bacteria are still coming out of their stress response to the abx. basically i think we're seeing a bacterial stress response to abx of varying degrees (vancomycin also is more potent against gram positive bacteria bc it targets cell wall synthesis)
+```{r}
+## calculate log2 fold change
+## pos l2fc: counts higher at toc
+## neg l2fc: counts higher at d1 (or counts lower at toc)
+ko_lfcs <- calculate_log2fc(long_input_table = koCounts_w_meta,
+                            group_by_cols = c('ko', 'subject_id', 'new_visit_num', 'treatment_group'),
+                            counts_col = 'sum_norm_counts_epsilon',
+                            variable_col = 'new_visit_num',
+                            var1 = '4',
+                            var2 = '2',
+                            exp_var_cols = c('ko', 'treatment_group'))
+
+perSample_koLfc <- ko_lfcs$SampleLFC
+perKO_lfc <- ko_lfcs$ExpVarLFC
+
+
+## doing this per treatment group for average lfcs bc fgsea doesnt like multiples of kos
+## have to rank and create lists per treatment group
+for (treatment in unique(unlist(perKO_lfc$treatment_group))){
+  list_var_name <- paste0(tolower(treatment), ".", "kosOverall_arrangedList")
+  gsea_var_name <- paste0(tolower(treatment), ".", "gsea_res")
+  cp_gsea_var_name <- paste0(tolower(treatment), ".", "cp_gsea_res")
+  
+  arranged <- perKO_lfc %>% 
+    filter(treatment_group == treatment) %>% 
+    arrange(desc(overall_log2fc))
+  
+  arrangedList <- setNames(arranged$overall_log2fc, arranged$ko)
+  
+  assign(list_var_name,
+         arrangedList)
+  
+  gsea_res <- fgsea(pathways = pretty_gmm_list,
+                    stats = arrangedList,
+                    minSize = 5,
+                    maxSize = 1000)
+  gsea_res[['compared_groups']] <- treatment
+  
+  assign(gsea_var_name,
+         gsea_res)
+  
+  cp_gsea <- gseKEGG(geneList = arrangedList,
+                      organism = "ko",
+                      keyType = "kegg",
+                      verbose = TRUE,
+                      minGSSize = 5,
+                      maxGSSize = 1000,
+                      pvalueCutoff = 1.0,
+                      by = "fgsea")
+  
+  cp_gsea_res <- cp_gsea@result
+  cp_gsea_res[['compared_groups']] <- treatment
+  
+  assign(cp_gsea_var_name,
+         cp_gsea_res)
+}
+
+## creating gsea plot!
+treatGroup_cp_gsea_res <- rbind(vancomycin_125mg_po_qid.cp_gsea_res,
+                                crs3123_200mg_po_bid.cp_gsea_res,
+                                crs3123_400mg_po_bid.cp_gsea_res) %>% 
+  filter(p.adjust <= 0.05)
+
+## averaging all weird neurodegen pathways into one under ROS defense mechanisms
+neurodegen_paths <- c('ko05016',
+                      'ko05014',
+                      'ko05022')
+
+av_cols <- c('setSize',
+             'enrichmentScore',
+             'NES',
+             'pvalue',
+             'p.adjust',
+             'qvalue',
+             'rank')
+
+combined_weird_pathways <- treatGroup_cp_gsea_res %>% 
+  filter(ID %in% neurodegen_paths) %>% 
+  select(!c('ID', 'Description')) %>% 
+  mutate(across(all_of(av_cols), ~mean(.))) %>% 
+  distinct() %>% 
+  mutate(ID = paste('ko05016', 'ko05014', 'ko05022', sep = "."),
+         Description = paste('ROS defense mechanisms'))
+
+filt_treatGRoup_cp_gsea_res <- treatGroup_cp_gsea_res %>% 
+  filter(!(ID %in% neurodegen_paths)) 
+
+fixed_treatGRoup_cp_gsea_res <- rbind(filt_treatGRoup_cp_gsea_res,
+                                      combined_weird_pathways)
+
+treatGroup_gsea_plot <- fun_gsea_plot(input_table = fixed_treatGRoup_cp_gsea_res,
+                                 x_axis = 'NES',
+                                 y_axis = 'Description',
+                                 facet_by = 'compared_groups',
+                                 facet_labs = treat_group_labs,
+                                 row_num = 1,
+                                 fill_by = 'p.adjust',
+                                 size_by = 'setSize',
+                                 size_name = 'Gene\nCounts',
+                                 legend_name = 'Adjusted\nP-value',
+                                 plot_title = 'Pathway Enrichment at TOC compared to D1',
+                                 x_name = 'Normalized Enrichment Score',
+                                 y_name = 'Pathway')
+```
+
+since im calculating the log2 fold change with TOC-D1 (using D1 as the baseline for the later timepoint), these results show how pathways have changed at TOC relative to D1 (i think). positive values mean the pathways are more represented at toc and negative values mean the pathways are less represented at toc. 
+```{r, fig.width=22, fig.height=8}
+treatGroup_gsea_plot
+
+ggsave('../plots/pathEnrich_at_TOC.pdf',
+       plot = treatGroup_gsea_plot,
+       width = 22,
+       height = 8)
+ggsave('../plots/pngs/pathEnrich_at_TOC.png',
+       plot = treatGroup_gsea_plot,
+       width = 22,
+       height = 8)
+```
+
+**Looking more closely at secondary bile acid biosynthesis pathway**
+- looks like K01442 (choloylglycine hydrolase) is contributing the most to the trend we see (vanc loses secondary bile acid biosynthesis and CRS does not) - that's a bile salt hydrolase which can help explain the build up of conjugated bile acids in the vancomycin group at TOC (omg!!)
+- actually almost every single bile acid KO is knocked down in the vanc group at TOC but levels stay steady or even increase in the CRS3123 groups 
+
+new enzyme names:
+- K22605 - baiA (NADP+ acceptor)
+- K22604 - baiA (NAD+ acceptor), acts on lithocholate
+- K22606 - (NAD+ acceptor), acts on isolithocholate, similar function as baiA
+- K22607 - (NADP+ acceptor), acts on isolithocholate
+- K15868 - baiB 
+- K01442 - bile salt hydrolase
+
+
+stats
+```{r}
+kos_names_df <- noTax_ko_counts_df %>% 
+  distinct(ko, enzyme_name)
+
+bile_acid_kos <- c('K01442',
+                   'K15868',
+                   'K22605',
+                   'K22604',
+                   'K22606',
+                   'K22607')
+
+bile_path_koCounts <- koCounts_w_meta %>% 
+  filter(ko %in% bile_acid_kos) %>% 
+  left_join(kos_names_df, by = "ko") %>% 
+  mutate(log_sum_norm_counts_epsilon = log10(sum_norm_counts_epsilon)) %>% 
+  convert_as_factor(new_visit_num)
+
+bile_ko_art_res <- art_lmer_doubleStrat(input_table = bile_path_koCounts,
+                     strat_variable1 = 'treatment_group',
+                     strat_variable2 = 'ko',
+                     model_formula_left = 'log_sum_norm_counts_epsilon',
+                     model_formula_right = 'new_visit_num + (1|subject_id)',
+                     model_contrast_run_by = 'new_visit_num')
+
+(bile_ko_contrast <- bile_ko_art_res$ARTContrast %>% 
+  rename(p.adj.signif = signif) %>% 
+  mutate(across(all_of(c('group1', 'group2')), ~gsub(., pattern = "new_visit_num*", replacement = "")),
+         y.position = as.numeric(0.0002)))
+```
+
+plot w stats on it 
+```{r, fig.width=15, fig.height=13}
+bile_ko_labs <- c('K01442' = 'bile salt hydrolase (cbh)\n (K01442)',
+                   'K15868' = 'baiB\n(K15868)',
+                   'K22605' = 'baiA (NADP+ acceptor)\n(K22605)',
+                   'K22604' = 'baiA (NAD+ acceptor)\n(K22604)',
+                   'K22606' = '3beta-hydroxycholanate\n3-dehydrogenase\n(NAD+ acceptor)\n(K22606)',
+                   'K22607' = '3beta-hydroxycholanate\n3-dehydrogenase\n(NADP+ acceptor)\n(K22607)')
+
+(bile_acid_path_plot <- bile_path_koCounts %>% 
+  ggplot(aes(x = new_visit_num, y = sum_norm_counts_epsilon)) +
+  geom_boxplot(aes(group = new_visit_num), outlier.shape = NA) +
+  geom_jitter(alpha = 0.5, size = 2.5) +
+  facet_grid(ko~treatment_group,
+             labeller = labeller(.cols = treat_group_labs,
+                                 .rows = bile_ko_labs)) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)) +
+  scale_y_continuous(transform = 'log10') +
+  scale_x_discrete(labels = c('D1', 'TOC')) +
+  stat_pvalue_manual(bile_ko_contrast,
+                     step.group.by = c('treatment_group', 'ko'),
+                     step.increase = 0.1,
+                     bracket.nudge.y = -2,
+                     size = 7,
+                     hide.ns = TRUE,
+                     label = 'p.adj.signif') +
+  expand_limits(y = c(0.00000001, 0.1)) +
+  labs(title = 'Secondary Bile Acid Biosynthesis Pathway Genes',
+       x = 'Visit',
+       y = 'Normalized Gene Counts (log10)'))
+
+ggsave('../plots/bile_acid_pathway_kos.pdf',
+       plot = bile_acid_path_plot,
+       width = 15,
+       height = 13)
+ggsave('../plots/pngs/bile_acid_pathway_kos.png',
+       plot = bile_acid_path_plot,
+       width = 15,
+       height = 13)
+```
+
+linking taxonomic info with ko counts to see which bugs are contributing gene counts to the secondary bile acid biosynthesis pathway (relative abundance esque)
+```{r, fig.width=15, fig.height=17}
+## creating table with relative counts to a particular ko per visit and treatment group 
+for_plot_proc_withTax_ko_counts_df <- proc_withTax_ko_counts_df %>% 
+  filter(ko %in% bile_acid_kos,
+         new_visit_num != 1) %>% 
+  group_by(new_visit_label, treatment_group, ko) %>% 
+  separate_wider_delim(cols = tax_class,
+                       delim = '.',
+                       names = c('genus', 'species'),
+                       too_few = "align_start") %>% 
+  mutate(visit_ko_counts = relative_counts/sum(relative_counts),
+         species = ifelse(is.na(species), 'unclassified', species),
+         genus = gsub(genus, pattern = "g__", replacement = ""),
+         species = gsub(species, pattern = "s__", replacement = ""),
+         top_genera = ifelse(genus %in% tax_plot_labels$genus, genus, 'Other')) 
+
+## pulling the top 5 genera that contributed the most counts to a ko per visit and treatment group 
+tax_plot_labels <- for_plot_proc_withTax_ko_counts_df %>% 
+  filter(new_visit_num == 4) %>% 
+  group_by(treatment_group, ko, genus) %>% 
+  summarise(visit_ko_counts = sum(visit_ko_counts)) %>% 
+  group_by(treatment_group, ko) %>% 
+  top_n(5, visit_ko_counts) %>% 
+  arrange(desc(genus))
+
+## creating the plot
+(bile_acid_path_wTax <- for_plot_proc_withTax_ko_counts_df %>% 
+  filter(new_visit_num == 4) %>% 
+  ggplot(aes(x = treatment_group, y = visit_ko_counts)) +
+  geom_col(aes(fill = genus), alpha = 0.8) +
+  scale_fill_viridis(option = 'C', discrete = TRUE) +
+  # scale_x_discrete(expand = c(0,0)) +
+  facet_grid(ko~treatment_group,
+             scales = "free_x",
+             # nrow=3,
+             # strip.position = "top",
+             labeller = labeller(ko = bile_ko_labs,
+                                 treatment_group = treat_group_labs)) +
+  geom_text(data = tax_plot_labels, 
+            aes(label = genus),
+            position = position_fill(vjust = 0.5),
+            color = 'black',
+            size = 6.5,
+            fontface = "bold",
+            check_overlap = TRUE) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0),
+        legend.position = "top",
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank()) +
+  labs(x = 'Treatment Group',
+       y = 'Relative Contribution to Gene Counts',
+       title = 'Taxonomic Contribution to Secondary Bile Acid Biosynthesis Pathway Genes',
+       subtitle = 'Visit: TOC',
+       fill = 'Genus'))
+
+## saving my outputs
+ggsave('../plots/bile_acid_pathway_wTax.pdf',
+       plot = bile_acid_path_wTax,
+       width = 15,
+       height = 17)
+ggsave('../plots/pngs/bile_acid_pathway_wTax.png',
+       plot = bile_acid_path_wTax,
+       width = 15,
+       height = 17)
+```
+
+**pathways of neurodegeneration**
+pathways of neurodegeneration, aml, and huningtons disease all have the same kos (so could be any of those pathways) - average all values from these pathways to combine into one??
+```{r}
+neurodegen_paths <- c('ko05016',
+                      'ko05014',
+                      'ko05022')
+
+av_cols <- c('setSize',
+             'enrichmentScore',
+             'NES',
+             'pvalue',
+             'p.adjust',
+             'qvalue',
+             'rank')
+
+combined_weird_pathways <- treatGroup_cp_gsea_res %>% 
+  filter(ID %in% neurodegen_paths) %>% 
+  select(!c('ID', 'Description')) %>% 
+  mutate(across(all_of(av_cols), ~mean(.))) %>% 
+  distinct() %>% 
+  mutate(ID = paste('ko05016', 'ko05014', 'ko05022', sep = "."),
+         Description = paste('ROS defense mechanisms'))
+
+filt_treatGRoup_cp_gsea_res <- treatGroup_cp_gsea_res %>% 
+  filter(!(ID %in% neurodegen_paths)) 
+
+fixed_treatGRoup_cp_gsea_res <- rbind(filt_treatGRoup_cp_gsea_res,
+                                      combined_weird_pathways)
+```
+
+a lot of these genes/enzymes are involved in bacterial defense against reactive oxygen species (ROS) from the host immune response - that's what I called it for now 
+```{r, fig.width=17, fig.height=10}
+path_neuro_kos <- c('K00432',
+                    'K02261',
+                    'K04565',
+                    'K00412')
+
+
+(path_neuro_ko_plot <- koCounts_w_meta %>% 
+  filter(ko %in% path_neuro_kos) %>% 
+  left_join(kos_names_df, by = "ko") %>% 
+  ggplot(aes(x = new_visit_label, y = sum_norm_counts_epsilon)) +
+  geom_boxplot(aes(group = new_visit_label), outlier.shape = NA) +
+  geom_jitter(alpha = 0.5, size = 2.5) +
+  facet_grid(enzyme_name~treatment_group) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)) +
+  scale_y_continuous(transform = 'log10') +
+  labs(title = 'Weird Human Disease Pathways KO Breakdown',
+       x = 'Visit',
+       y = 'Normalized Gene Counts (log10)'))
+
+ggsave('../plots/weird_path_neuro_kos.pdf',
+       plot = path_neuro_ko_plot,
+       width = 17,
+       height = 10)
+ggsave('../plots/pngs/weird_path_neuro_kos.png',
+       plot = path_neuro_ko_plot,
+       width = 17,
+       height = 10)
+```
+
+**Saving all plots into an .rdat object**
+this is to be used later for figure generation 
+```{r}
+##'treatGroup_gsea_plot'
+save(list = c('toc_gsea_plot',
+              'd1_gsea_plot',
+              'bile_acid_path_plot',
+              'bile_acid_path_wTax'),
+     file = '../../../manuscript_figures/ggplots/pathAnalysis_plots.rdat')
+```

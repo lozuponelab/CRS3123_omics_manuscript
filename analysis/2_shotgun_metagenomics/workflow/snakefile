@@ -1,0 +1,428 @@
+### written with the intent of basic upstream raw metagenomic sequence processing and ###
+### reference based taxonomic assignment                                              ###
+### author: madi apgar                                                                ###
+
+from os.path import join as pj
+from os.path import basename
+from os import environ
+import pandas as pd
+import re
+import glob
+from snake_utils.snake_functions import comb_filepaths, make_fp_dict
+
+
+RAW_SEQ_IN =  config['raw_seq_in']
+METADATA = pd.read_csv(config['metadata_file'])
+SAMPLE_LIST = METADATA['Sample'].tolist()
+
+## user input genome index files and the name of the index 
+FILTER_FASTA = config['filter_to_fasta']
+
+## to move wanted genome index files for star, rsem, and picard into the pipeline's working directory so bind points dont break 
+REF_DIR = "user_reference_files"
+NEW_FASTA_PATH= pj(REF_DIR, basename(FILTER_FASTA))
+
+## humann reference indices 
+METAPHLAN_DB = config['metaphlan_db']
+METAPHLAN_INDEX_NAME = config['metaphlan_index_name']
+CHOCOPHLAN_DB = config['chocophlan_db']
+UNIREF_DB = config['uniref_db']
+UTILITY_MAPPING_DB = config['utility_mapping_db']
+
+sample_fp_dict = make_fp_dict(metadata_df=METADATA,
+                              dataset_dir=RAW_SEQ_IN)
+
+
+## conda environment
+## dont include support for conda envs??
+FASTQC_CONDA = "envs/fastqc_env.yml"
+MULTIQC_CONDA = "envs/multiqc_env.yml"
+BBMAP_CONDA = "envs/bbmap_env.yml"
+HUMANN_CONDA = "envs/humann_env.yml"
+
+## singularities (preferred)
+FASTQC_SING = "docker://madiapgar/shotgun_meta:fastqc-v0.12.1"
+MULTIQC_SING = "docker://madiapgar/shotgun_meta:multiqc-v1.26"
+BBMAP_SING = "docker://madiapgar/shotgun_meta:bbmap-v39.08"
+HUMANN_SING = "docker://madiapgar/shotgun_meta:humann-v3.9"
+
+## functions? to use these as inputs you need to have the function defined in the snakefile which is dumb but whatever
+## added wildcard constraints so my input function would stop breaking, this regex works for the current sampleids but will probs have to
+## alter it in the future
+## regex to only include sample id but not full path: [^/]* (excludes anything with forward slashes in it) - ADD EXCLUDING WHITE SPACE (\s)
+## current regex only selects letters, numbers, and underscores: \\w+
+wildcard_constraints:
+    sample=r"[^/]*"
+
+def pull_rawSeq_fps(wildcards):
+    raw_files = sample_fp_dict[wildcards.sample]
+    return(raw_files)
+
+
+# Set apptainer bindings NOT A PERMANENT SOLUTION
+## idk if this is going to work
+##os.environ["APPTAINER_BIND"] = "/scratch/alpine/mapgar@xsede.org:/scratch/alpine/mapgar@xsede.org"
+
+rule all:
+    input:
+        expand("shotgun_meta_out/pretrimming_fastqc/{sample}/",
+               sample=SAMPLE_LIST),
+        "shotgun_meta_out/pretrimming_multiqc_report.html",
+        NEW_FASTA_PATH,
+        expand("shotgun_meta_out/bbduk_trimmed/{sample}/{sample}_R1_trimmed.fastq.gz",
+               sample=SAMPLE_LIST),
+        expand("shotgun_meta_out/bbduk_trimmed/{sample}/{sample}_R2_trimmed.fastq.gz",
+               sample=SAMPLE_LIST),
+        "shotgun_meta_out/bbsplit_index/",
+        expand("shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R1_filtered.fastq.gz",
+               sample=SAMPLE_LIST),
+        expand("shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R2_filtered.fastq.gz",
+               sample=SAMPLE_LIST),
+        expand("shotgun_meta_out/posttrimming_fastqc/{sample}/",
+                sample=SAMPLE_LIST),
+        "shotgun_meta_out/posttrimming_multiqc_report.html",
+        expand("shotgun_meta_out/concatenated_reads/{sample}/{sample}.fastq.gz",
+                sample=SAMPLE_LIST),
+        expand("shotgun_meta_out/humann/{sample}/{sample}_pathabundance.tsv",
+                sample=SAMPLE_LIST),
+        expand("shotgun_meta_out/humann/{sample}/{sample}_pathcoverage.tsv",
+                sample=SAMPLE_LIST),
+        expand("shotgun_meta_out/humann/{sample}/{sample}_genefamilies.tsv",
+                sample=SAMPLE_LIST),
+        expand("shotgun_meta_out/humann/{sample}/{sample}_humann_temp/{sample}_metaphlan_bugs_list.tsv",
+                sample=SAMPLE_LIST),
+        "shotgun_meta_out/humann/aggregated/all_pathabundance.tsv",
+        "shotgun_meta_out/humann/aggregated/all_pathcoverage.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_rxn.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_namedRXN.tsv", 
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_ko.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_namedKO.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_namedKP.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_namedKM.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_eggnog.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_go.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_namedGO.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_pfam.tsv",
+        "shotgun_meta_out/humann/aggregated/all_genefamilies_namedPFAM.tsv"
+        
+
+##### SUBWORKFLOW ONE!! #####
+## set up to run for all paired samples - in .csv file that tells you what pairs on, read in as a dict of the file names per sample
+## output directory per samples
+## can keep threads=2 and ntasks=1
+##### madis notes: #####
+## both examples under "input:" work to pull both forward/reverse reads in for each sample 
+## could also do this: inFiles = expand(pj(RAW_SEQ_IN, "{{sample}}_{read}.fastq.gz"), read=READS) 
+rule run_pretrimming_fastqc:
+    input:
+        inFiles = pull_rawSeq_fps
+    output:
+        outDir = directory("shotgun_meta_out/pretrimming_fastqc/{sample}/")
+    singularity:
+        FASTQC_SING
+    conda:
+        FASTQC_CONDA
+    params:
+        nthreads = 2
+    shell:
+        """
+        echo "running fastqc"
+
+        mkdir -p {output.outDir}
+
+        fastqc {input.inFiles} -o {output.outDir} --threads {params.nthreads}
+        """
+
+
+
+rule run_pretrimming_multiqc:
+    input:
+        ## tells snakemake to wait for all fastqc outputs to be made before starting this rule since all of them are required for this rule
+        inDirs = expand("shotgun_meta_out/pretrimming_fastqc/{sample}/",
+                         sample=SAMPLE_LIST)
+    output:
+        outFile = "shotgun_meta_out/pretrimming_multiqc_report.html"
+    singularity:
+        MULTIQC_SING
+    conda:
+        MULTIQC_CONDA
+    params:
+        outDir = "shotgun_meta_out/",
+        multiqcFilename = "pretrimming_multiqc_report.html"
+    shell:
+        """
+        echo "running multiqc"
+
+        multiqc {input.inDirs} -o {params.outDir} --filename {params.multiqcFilename} .
+        """
+
+
+## move input fasta/gtf files into the current working directory so bind points dont break
+rule move_reference_files:
+    input:
+        fastaFile = FILTER_FASTA
+    output:
+        new_loc_fasta = NEW_FASTA_PATH
+    params:
+        ref_directory = REF_DIR
+    shell:
+        """
+        mkdir -p {params.ref_directory}
+
+        ## bbsplit reference fasta files
+        mv {input.fastaFile} {output.new_loc_fasta}
+
+        echo "moved genome fasta file to working directory!"
+        """
+
+
+## using bbmap's bbduk for trimming adapters off sequences
+rule run_bbduk:
+    input:
+        inFiles = pull_rawSeq_fps
+    output:
+        forwardTrimmed = "shotgun_meta_out/bbduk_trimmed/{sample}/{sample}_R1_trimmed.fastq.gz",
+        reverseTrimmed = "shotgun_meta_out/bbduk_trimmed/{sample}/{sample}_R2_trimmed.fastq.gz"
+    singularity:
+        BBMAP_SING
+    conda:
+        BBMAP_CONDA
+    params:
+        outDir = "shotgun_meta_out/bbduk_trimmed/",
+        bbduk_execute = "bbduk.sh",
+        adapter_refs = "/opt/bbmap/resources/adapters.fa", ## this might cause some problems for me bc its in the container
+        trim_left = 20,
+        trim_right = 140,
+        kmer_length = 20,
+        nthreads = 14 ## nthreads = cpus_per_task
+    shell:
+        """
+        mkdir -p {params.outDir}
+
+        {params.bbduk_execute} in={input.inFiles[0]} \
+                               in2={input.inFiles[1]} \
+                               ref={params.adapter_refs} \
+                               out1={output.forwardTrimmed} \
+                               out2={output.reverseTrimmed} \
+                               ktrim=lr \
+                               k={params.kmer_length} \
+                               mink=4 \
+                               minlen=20 \
+                               qtrim=f \
+                               ftl={params.trim_left} \
+                               ftr={params.trim_right} \
+                               threads={params.nthreads} \
+                               overwrite=true
+        """
+
+
+## need to generate bbsplit index separately and then pass into alignment/filtering rule as input
+## if you dont, every instance of bbsplit will try to generate the index which is a problem because it will be 
+## trying to write to the same location and causes weird java errors 
+rule make_bbsplit_index:
+    input:
+        ref_fasta = NEW_FASTA_PATH
+    output:
+        indexDir = directory("shotgun_meta_out/bbsplit_index/")
+    singularity:
+        BBMAP_SING
+    conda:
+        BBMAP_CONDA
+    params:
+        bbsplit_index_execute = "bbsplit.sh"
+    shell:
+        """
+        mkdir -p {output.indexDir}
+
+        {params.bbsplit_index_execute} ref={input.ref_fasta} \
+                                       path={output.indexDir} \
+                                       build=1 \
+                                       overwrite=false
+        """
+
+
+## use bbmaps bbsplit to filter out host reads (could also use hostile - I already have a container built for bbmap though)
+## add moving fasta as dependency for this rule so it waits for the fasta to be moved into the working directory before running, also add the new fasta path as an input to this rule
+rule run_bbsplit:
+    input:
+        forwardTrimmed = "shotgun_meta_out/bbduk_trimmed/{sample}/{sample}_R1_trimmed.fastq.gz",
+        reverseTrimmed = "shotgun_meta_out/bbduk_trimmed/{sample}/{sample}_R2_trimmed.fastq.gz",
+        bbsplit_index = "shotgun_meta_out/bbsplit_index/",
+        pretrim_multiqc = "shotgun_meta_out/pretrimming_multiqc_report.html" ## just to make sure this waits for the multiqc report to be made before running, can remove if it causes problems
+    output:
+        forwardFiltered = "shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R1_filtered.fastq.gz",
+        reverseFiltered = "shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R2_filtered.fastq.gz" 
+    singularity:
+        BBMAP_SING
+    conda:
+        BBMAP_CONDA
+    params:
+        outDir = "shotgun_meta_out/bbsplit_filtered/",
+        bbsplit_execute = "bbsplit.sh",
+        nthreads = 16 ## nthreads = cpus_per_task (for now)
+    shell:
+        """
+        mkdir -p {params.outDir}
+
+        {params.bbsplit_execute} in={input.forwardTrimmed} \
+                                 in2={input.reverseTrimmed} \
+                                 ref={input.bbsplit_index} \
+                                 outu1={output.forwardFiltered} \
+                                 outu2={output.reverseFiltered} \
+                                 threads={params.nthreads} \
+                                 -Xmx50g ## this means 50GB of ram!!
+        
+        """
+
+
+## can reuse previous rules this way!
+## can alter the input, output, params, etc directives, anything not defined here will be inherited from the original rule
+## CANNOT alter the execution step (i.e. shell)
+## running fastqc on samples posttrimming and filtering
+use rule run_pretrimming_fastqc as run_posttrimming_fastqc with:
+    input:
+        inFiles = ["shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R1_filtered.fastq.gz", "shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R2_filtered.fastq.gz"]
+    output:
+        outDir = directory("shotgun_meta_out/posttrimming_fastqc/{sample}/")
+
+
+
+## running multiqc on samples posttrimming via cutadapt 
+## if you include a directive to overwrite here (i.e. params), you'll need to specify all arguments underneath it,
+## even if they don't change
+use rule run_pretrimming_multiqc as run_posttrimming_multiqc with:
+    input:
+        inDirs = expand("shotgun_meta_out/posttrimming_fastqc/{sample}/",
+                        sample=SAMPLE_LIST)
+    output:
+        outFile = "shotgun_meta_out/posttrimming_multiqc_report.html"
+    params:
+        outDir = "shotgun_meta_out/",
+        multiqcFilename = "posttrimming_multiqc_report.html"
+
+
+
+## need to concatenate forward and reverse reads into one for metaphlan
+rule concat_reads:
+    input:
+        forwardFiltered = "shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R1_filtered.fastq.gz",
+        reverseFiltered = "shotgun_meta_out/bbsplit_filtered/{sample}/{sample}_R2_filtered.fastq.gz"
+    output:
+        concatRead = "shotgun_meta_out/concatenated_reads/{sample}/{sample}.fastq.gz"
+    params:
+        outDir = "shotgun_meta_out/concatenated_reads/"
+    shell:
+        """
+        mkdir -p {params.outDir}
+
+        cat {input.forwardFiltered} {input.reverseFiltered} > {output.concatRead}
+        """
+
+
+## now reference metaphlann/humann pipeline!
+## going to just put in paths to already installed databases but may have to build that in in the future!
+rule run_humann:
+    input:
+        metaphlan_db = METAPHLAN_DB,
+        chocophlan_db = CHOCOPHLAN_DB,
+        uniref_db = UNIREF_DB,
+        concatRead = "shotgun_meta_out/concatenated_reads/{sample}/{sample}.fastq.gz"
+    output:
+        pathAbundance = "shotgun_meta_out/humann/{sample}/{sample}_pathabundance.tsv",
+        pathCoverage = "shotgun_meta_out/humann/{sample}/{sample}_pathcoverage.tsv",
+        geneFams = "shotgun_meta_out/humann/{sample}/{sample}_genefamilies.tsv",
+        bugList = "shotgun_meta_out/humann/{sample}/{sample}_humann_temp/{sample}_metaphlan_bugs_list.tsv"
+    singularity:
+        HUMANN_SING
+    conda:
+        HUMANN_CONDA
+    params:
+        outDir = "shotgun_meta_out/humann/{sample}/",
+        humann_searchMode = "uniref90",
+        metaphlan_index = METAPHLAN_INDEX_NAME,
+        nthreads = 36 ## nthreads = cpus_per_task*2, keep threads the same and see what happens 
+    shell:
+        """
+        mkdir -p {params.outDir}
+
+        ## actually running humann
+        humann -i {input.concatRead} \
+               -o {params.outDir} \
+               --threads {params.nthreads} \
+               --search-mode {params.humann_searchMode} \
+               --nucleotide-database {input.chocophlan_db} \
+               --protein-database {input.uniref_db} \
+               --metaphlan-options "--bowtie2db {input.metaphlan_db} -x {params.metaphlan_index}"
+        """
+
+
+## rule to aggregrate humann outputs goes here!!
+## in homi, john has a couple utility python scripts to aggregate the bugs list for all samples 
+## and to convert metaphlan version 4 to version 3 in the bugs list .tsv for each sample (not sure why but im sure ill find out)
+## i dont have either of those steps in here
+## need to make sure utility mapping db can be found in container 
+rule aggregate_humann:
+    input:
+        mapping_db = UTILITY_MAPPING_DB,
+        pathAbundance = expand("shotgun_meta_out/humann/{sample}/{sample}_pathabundance.tsv",
+                               sample=SAMPLE_LIST),
+        pathCoverage = expand("shotgun_meta_out/humann/{sample}/{sample}_pathcoverage.tsv",
+                              sample=SAMPLE_LIST),
+        geneFams = expand("shotgun_meta_out/humann/{sample}/{sample}_genefamilies.tsv",
+                          sample=SAMPLE_LIST)
+    output:
+        all_pathAbundance = "shotgun_meta_out/humann/aggregated/all_pathabundance.tsv",
+        all_pathCoverage = "shotgun_meta_out/humann/aggregated/all_pathcoverage.tsv",
+        all_geneFams = "shotgun_meta_out/humann/aggregated/all_genefamilies.tsv",
+        geneFams_rxn = "shotgun_meta_out/humann/aggregated/all_genefamilies_rxn.tsv",
+        geneFams_namedRXN = "shotgun_meta_out/humann/aggregated/all_genefamilies_namedRXN.tsv", 
+        geneFams_ko = "shotgun_meta_out/humann/aggregated/all_genefamilies_ko.tsv",
+        geneFams_namedKO = "shotgun_meta_out/humann/aggregated/all_genefamilies_namedKO.tsv",
+        geneFams_namedKP = "shotgun_meta_out/humann/aggregated/all_genefamilies_namedKP.tsv",
+        geneFams_namedKM = "shotgun_meta_out/humann/aggregated/all_genefamilies_namedKM.tsv",
+        geneFams_eggnog = "shotgun_meta_out/humann/aggregated/all_genefamilies_eggnog.tsv",
+        geneFams_go = "shotgun_meta_out/humann/aggregated/all_genefamilies_go.tsv",
+        geneFams_namedGO = "shotgun_meta_out/humann/aggregated/all_genefamilies_namedGO.tsv",
+        geneFams_pfam = "shotgun_meta_out/humann/aggregated/all_genefamilies_pfam.tsv",
+        geneFams_namedPFAM = "shotgun_meta_out/humann/aggregated/all_genefamilies_namedPFAM.tsv"
+    singularity:
+        HUMANN_SING
+    conda:
+        HUMANN_CONDA
+    params:
+        inDir = "shotgun_meta_out/humann",
+        outDir = "shotgun_meta_out/humann/aggregated/",
+        humann_searchMode = "uniref90"
+    shell:
+        """
+        mkdir -p {params.outDir}
+
+        ## overall tables 
+        humann_join_tables -i {params.inDir} -o {output.all_pathAbundance} --file_name pathabundance.tsv --search-subdirectories
+
+        humann_join_tables -i {params.inDir} -o {output.all_pathCoverage} --file_name pathcoverage.tsv --search-subdirectories
+
+        humann_join_tables -i {params.inDir} -o {output.all_geneFams} --file_name genefamilies.tsv --search-subdirectories
+        
+        # Metacyc RXN renaming
+        humann_regroup_table -i {output.all_geneFams} -g {params.humann_searchMode}_rxn -o {output.geneFams_rxn}
+        humann_rename_table -i {output.geneFams_rxn} -n metacyc-rxn -o {output.geneFams_namedRXN}
+
+        # KO renaming
+        humann_regroup_table -i {output.all_geneFams} -c {input.mapping_db}/map_ko_{params.humann_searchMode}.txt.gz -o {output.geneFams_ko} ##-g {params.humann_searchMode}_ko
+        humann_rename_table -i {output.geneFams_ko} -n kegg-orthology -c {input.mapping_db}/map_ko_name.txt.gz -o {output.geneFams_namedKO}
+        humann_rename_table -i {output.geneFams_ko} -n kegg-pathway -c {input.mapping_db}/map_ko_name.txt.gz -o {output.geneFams_namedKP}
+        humann_rename_table -i {output.geneFams_ko} -n kegg-module -c {input.mapping_db}/map_ko_name.txt.gz -o {output.geneFams_namedKM}
+
+        # EGGNOG renaming
+        humann_regroup_table -i {output.all_geneFams} -c {input.mapping_db}/map_eggnog_{params.humann_searchMode}.txt.gz -o {output.geneFams_eggnog} ##-g {params.humann_searchMode}_eggnog
+
+        # GO renaming
+        humann_regroup_table -i {output.all_geneFams} -c {input.mapping_db}/map_go_{params.humann_searchMode}.txt.gz -o {output.geneFams_go} ##-g {params.humann_searchMode}_go
+        humann_rename_table -i {output.geneFams_go} -n go -c {input.mapping_db}/map_go_name.txt.gz -o {output.geneFams_namedGO}
+
+        # PFAM renaming
+        humann_regroup_table -i {output.all_geneFams} -c {input.mapping_db}/map_pfam_{params.humann_searchMode}.txt.gz -o {output.geneFams_pfam} ##-g {params.humann_searchMode}_pfam
+        humann_rename_table -i {output.geneFams_pfam} -n pfam -c {input.mapping_db}/map_pfam_name.txt.gz -o {output.geneFams_namedPFAM}
+        """ 
