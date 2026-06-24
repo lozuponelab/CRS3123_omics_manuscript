@@ -1,5 +1,6 @@
 ## calculates difference between means for a post-hoc pairwise test 
 ## 7-8-2025
+## author: madi apgar
 
 library(dplyr)
 library(magrittr)

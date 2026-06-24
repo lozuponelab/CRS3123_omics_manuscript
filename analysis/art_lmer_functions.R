@@ -1,5 +1,6 @@
 ## ART (aligned rank transformed) Linear Mixed Effects Modeling Functions
 ## 02-24-2025
+## author: madi apgar
 
 ####### NOTES #######
 # another alternative to a two-way non-parametric ANOVA: aligned rank transform (ART)
