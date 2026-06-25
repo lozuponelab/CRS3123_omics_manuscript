@@ -1,0 +1,427 @@
+---
+title: "dysbiosis_score"
+output: html_document
+date: "2025-03-31"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(broom)
+library(qiime2R)
+library(apppleplots)
+library(vegan)
+library(ggpubr)
+library(rio)
+```
+
+## **Functions**
+`source()` pulls in functions placed in other R scripts and saves them to your global environment!
+- here i'm pulling in the statistical analysis functions:
+  - `test_normality()` - does basic R tests for normality on the data
+  - `art_lmer_notStrat()` - runs aligned rank transform lmer on the data in an overall model (not stratified)
+  - `art_lmer_strat()` - runs aligned rank transform lmer on the data in a variable stratified model
+  - `art_lmer_doubleStrat()` - runs aligned rank transform lmer on the data in a model stratified by two variables
+```{r}
+source("../../../art_lmer_functions.R")
+source("../../../test_lmer_vars_function.R")
+source("../../../diff_between_means_calc.R")
+
+## for distance matrix processing
+## for beta diversity statistical analysis 
+dist_matrix_prep <- function(metadata_file,
+                             dist_matrix_fp){
+  ## distance matrix
+  dist <- rio::import(dist_matrix_fp)
+  names(dist)[names(dist) == 'V1'] <- 'sampleid'
+  
+  dist %>% 
+    gather(-sampleid, key = comp_sample_col, value = dist) %>% 
+    filter(sampleid %in% metadata_file$sampleid) %>% 
+    filter(comp_sample_col %in% metadata_file$sampleid) %>% 
+    filter(str_detect(comp_sample_col, 'HC')) %>% 
+           # !str_detect(sampleid, 'HC')) %>% 
+    group_by(sampleid) %>% 
+    summarise(hc_av_dist = mean(dist)) %>% 
+    left_join(metadata_file, by = 'sampleid') -> dist_proc
+
+  return(dist_proc)
+}
+
+## small function to assign a value to a key in a dataframe column (i.e. numbers to actual categorical variables)
+values_to_keys <- function(input_table,
+                           key_col_name,
+                           value_col_name,
+                           key_value_list,
+                           col_order_list){
+  
+  input_table[value_col_name] <- unlist(lapply(unlist(input_table[key_col_name]), 
+                                        FUN = function(x){key_value_list[[x]]}))
+  
+  output_table <- input_table %>%
+    select(all_of(col_order_list), everything())
+  
+  return(output_table)
+}
+```
+
+## **File paths**
+```{r}
+uu_dist_fp <- '../data/uw_dist_matrix.tsv'
+wu_dist_fp <- '../data/w_dist_matrix.tsv'
+comb_seq_meta_fp <- '../data/healthyControl_comb_metadata.tsv'
+crestone_meta_fp <- '../../../../data_submission/1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+
+## global lists for renaming plot labels
+visit_x_labs <- c('0' = 'HC',
+                  '1' = 'Screen',
+                  '2' = 'D1',
+                  '3' = 'D4',
+                  '4' = 'TOC',
+                  '5' = 'D17', 
+                  '6' = 'D40', 
+                  '7' = 'D70') 
+
+treat_group_labs <- c('CRS3123 200mg',
+                      'CRS3123 400mg',
+                      'Vancomycin 125mg')
+names(treat_group_labs) <- c('CRS3123_200mg_po_bid',
+                             'CRS3123_400mg_po_bid',
+                             'Vancomycin_125mg_po_qid')
+
+visit_key_value <- c('1' = 'Screen',
+                     '2' = 'D1',
+                     '3' = 'D4',
+                     '4' = 'D10-15/TOC',
+                     '5' = 'D17',
+                     '6' = 'D40',
+                     '7' = 'D70',
+                     '0' = 'HC')
+visit_col_order <- c('new_visit_num', 
+                     'new_visit_label')
+
+visit_bins <- c('1' = 'before',
+                '2' = 'before',
+                '3' = 'during',
+                '4' = 'toc',
+                '5' = 'after',
+                '6' = 'after',
+                '7' = 'after')
+```
+
+## **Metadata: data wrangled**
+putting together crestone metadata files so I can have visit data 
+```{r}
+crestone_meta <- read_tsv(crestone_meta_fp) %>% 
+  select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>%
+  rename(sampleid = anonymized_name,
+         subject_id = host_subject_id,
+         new_visit_label = visit,
+         new_visit_num = visit_number) %>%
+  mutate(project = paste('crestone'))
+```
+
+wrangling healthy control meta to match up with crestone metadata for plots 
+```{r}
+hc_meta <- read_tsv(comb_seq_meta_fp) %>% 
+  rename(sampleid = SampleID,
+         subject_id = Subject_ID)
+
+proc_hc_meta <- hc_meta %>% 
+  filter(project == "healthy_control_AMC") %>% 
+  mutate(treat_group1 = paste('CRS3123_200mg_po_bid'),
+         treat_group2 = paste('CRS3123_400mg_po_bid'),
+         treat_group3 = paste('Vancomycin_125mg_po_qid')) %>% 
+  gather(!c('sampleid', 'subject_id', 'project'), key = 'madi_label', value = 'treatment_group') %>% 
+  select(-madi_label) %>% 
+  mutate(new_visit_num = paste(0),
+         new_visit_label = paste('HC'))
+```
+
+combining crestone and healthy control metadata 
+```{r}
+hc_crestone_meta <- rbind(crestone_meta, 
+                          proc_hc_meta)
+```
+
+## **Distance matrix: data wrangled**
+```{r}
+uu_dist_table <- dist_matrix_prep(hc_crestone_meta,
+                                  uu_dist_fp)
+
+wu_dist_table <- dist_matrix_prep(hc_crestone_meta,
+                                  wu_dist_fp)
+
+uu_dist_table
+wu_dist_table
+```
+
+## **Stats**
+**Between visits per treatment group**
+unweighted unifrac distances 
+```{r}
+factored_uu_dist_table <- uu_dist_table %>% 
+  select(subject_id, new_visit_num, treatment_group, hc_av_dist) %>% 
+  na.omit() %>% 
+  convert_as_factor(subject_id, new_visit_num, treatment_group)
+
+uu_art_lmer_strat <- art_lmer_strat(input_table = factored_uu_dist_table,
+                                    strat_variable = 'treatment_group',
+                                    model_formula_left = 'hc_av_dist',
+                                    model_formula_right = 'new_visit_num + (1|subject_id)',
+                                    model_contrast_run_by = 'new_visit_num')
+
+uu_art_lmerStrat_res <- uu_art_lmer_strat$ARTResults
+uu_art_lmerStrat_contrast <- uu_art_lmer_strat$ARTContrast %>% 
+  rename(p.adj.signif = signif) %>% 
+  mutate(y.position = case_when(
+          treatment_group == 'CRS3123_200mg_po_bid' ~ 0.9,
+          treatment_group == 'CRS3123_400mg_po_bid' ~ 0.9,
+          treatment_group == 'Vancomycin_125mg_po_qid' ~ 0.9
+         ),
+         ## pulling the column name off the group 1/2 comparisons so I can put the p value signif on the plot
+         group1 = gsub("new_visit_num*", "", group1),
+         group2 = gsub("new_visit_num*", "", group2)) 
+```
+
+weighted unifrac distances 
+```{r}
+factored_wu_dist_table <- wu_dist_table %>% 
+  select(subject_id, new_visit_num, treatment_group, hc_av_dist) %>% 
+  na.omit() %>% 
+  convert_as_factor(subject_id, new_visit_num, treatment_group)
+
+wu_art_lmer_strat <- art_lmer_strat(input_table = factored_wu_dist_table,
+                                    strat_variable = 'treatment_group',
+                                    model_formula_left = 'hc_av_dist',
+                                    model_formula_right = 'new_visit_num + (1|subject_id)',
+                                    model_contrast_run_by = 'new_visit_num')
+
+wu_art_lmerStrat_res <- wu_art_lmer_strat$ARTResults
+wu_art_lmerStrat_contrast <- wu_art_lmer_strat$ARTContrast %>% 
+  rename(p.adj.signif = signif) %>% 
+  mutate(y.position = case_when(
+          treatment_group == 'CRS3123_200mg_po_bid' ~ 2,
+          treatment_group == 'CRS3123_400mg_po_bid' ~ 2,
+          treatment_group == 'Vancomycin_125mg_po_qid' ~ 2
+         ),
+         ## pulling the column name off the group 1/2 comparisons so I can put the p value signif on the plot
+         group1 = gsub("new_visit_num*", "", group1),
+         group2 = gsub("new_visit_num*", "", group2)) 
+```
+
+**Between treatment group for each visit**
+unweighted unifrac distances 
+```{r}
+uu_lmer_treatGroup_strat <- art_lmer_strat(input_table = factored_uu_dist_table,
+                                    strat_variable = 'new_visit_num',
+                                    model_formula_left = 'hc_av_dist',
+                                    model_formula_right = 'treatment_group',
+                                    model_contrast_run_by = 'treatment_group')
+
+(uu_lmer_treatGroup_strat_res <- uu_lmer_treatGroup_strat$ARTResults)
+uu_lmer_treatGroup_strat_contrast <- uu_lmer_treatGroup_strat$ARTContrast 
+
+(proc_uu_lmer_treatGroup_strat_contrast <- values_to_keys(input_table = uu_lmer_treatGroup_strat_contrast,
+                                                         key_col_name = 'new_visit_num',
+                                                         value_col_name = 'new_visit_label',
+                                                         key_value_list = visit_key_value,
+                                                         col_order_list = visit_col_order))
+```
+
+weighted unifrac distances 
+```{r}
+wu_lmer_treatGroup_strat <- art_lmer_strat(input_table = factored_wu_dist_table,
+                                    strat_variable = 'new_visit_num',
+                                    model_formula_left = 'hc_av_dist',
+                                    model_formula_right = 'treatment_group',
+                                    model_contrast_run_by = 'treatment_group')
+
+(wu_lmer_treatGroup_strat_res <- wu_lmer_treatGroup_strat$ARTResults)
+wu_lmer_treatGroup_strat_contrast <- wu_lmer_treatGroup_strat$ARTContrast 
+
+(proc_wu_lmer_treatGroup_strat_contrast <- values_to_keys(input_table = wu_lmer_treatGroup_strat_contrast,
+                                                         key_col_name = 'new_visit_num',
+                                                         value_col_name = 'new_visit_label',
+                                                         key_value_list = visit_key_value,
+                                                         col_order_list = visit_col_order) %>% 
+  select(new_visit_label, new_visit_num, group1, group2, p.value, signif))
+```
+
+**Overall linear mixed effects model**
+unweighted unifrac 
+```{r}
+filt_factored_uu_dist_table <- factored_uu_dist_table %>% 
+  filter(new_visit_num != 0) %>% 
+  mutate(treat_group_num = case_when(
+    treatment_group == "CRS3123_200mg_po_bid" ~ 1,
+    treatment_group == "CRS3123_400mg_po_bid" ~ 2,
+    treatment_group == "Vancomycin_125mg_po_qid" ~ 3,
+  ),
+  new_visit_num = as.character(new_visit_num),
+  visit_bins = visit_bins[new_visit_num],
+  visit_bins = factor(visit_bins, levels = c("toc",
+                                             "before",
+                                             "during",
+                                             "after")),
+  new_visit_num = as.numeric(new_visit_num))
+
+mixed_modeling(predictors = c('treat_group_num', 'new_visit_num', 'visit_bins'),
+               response_vars = c('hc_av_dist'),
+               random_effect = '(1|subject_id)',
+               data = filt_factored_uu_dist_table,
+               reml = FALSE)
+```
+ weighted unifrac 
+```{r}
+filt_factored_wu_dist_table <- factored_wu_dist_table %>% 
+  filter(new_visit_num != 0) %>% 
+  mutate(treat_group_num = case_when(
+    treatment_group == "CRS3123_200mg_po_bid" ~ 1,
+    treatment_group == "CRS3123_400mg_po_bid" ~ 2,
+    treatment_group == "Vancomycin_125mg_po_qid" ~ 3,
+  ),
+  new_visit_num = as.character(new_visit_num),
+  visit_bins = visit_bins[new_visit_num],
+  visit_bins = factor(visit_bins, levels = c("toc",
+                                             "before",
+                                             "during",
+                                             "after")),
+  new_visit_num = as.numeric(new_visit_num))
+
+mixed_modeling(predictors = c('treat_group_num', 'new_visit_num', 'visit_bins'),
+               response_vars = c('hc_av_dist'),
+               random_effect = '(1|subject_id)',
+               data = filt_factored_wu_dist_table,
+               reml = FALSE)
+```
+
+## **Attempting some kind of visualization**
+unweighted unifrac distances
+```{r, fig.width=17, fig.height=7}
+(uu_dist_plot <- uu_dist_table %>% 
+   na.omit() %>% 
+  ggplot(aes(x = new_visit_num, y = hc_av_dist)) +
+  geom_boxplot(aes(group = new_visit_num, fill = new_visit_num), outlier.shape = NA) +
+  geom_jitter(aes(fill = new_visit_num), width = 0.1, height = 0, alpha = 0.7, size = 2.5, pch = 21) +
+  scale_fill_brewer(palette = 'Spectral') +
+  theme_bw(base_size = 20) +
+  theme(legend.position = 'none') +
+  facet_wrap(~treatment_group,
+             labeller = labeller(treatment_group = treat_group_labs)) +
+  stat_pvalue_manual(uu_art_lmerStrat_contrast,
+                     step.group.by = 'treatment_group',
+                     step.increase = 0.1,
+                     hide.ns = TRUE,
+                     label = 'p.adj.signif') +
+  scale_x_discrete(labels = visit_x_labs) +
+  labs(x = 'Visit',
+       y = 'Average Distance',
+       title = 'Unweighted UniFrac Distance from Healthy Controls'))
+```
+
+weighted unifrac distances 
+```{r, fig.width=17, fig.height=7}
+(wu_dist_plot <- wu_dist_table %>% 
+   na.omit() %>% 
+  ggplot(aes(x = new_visit_num, y = hc_av_dist)) +
+  geom_boxplot(aes(group = new_visit_num, fill = new_visit_num), outlier.shape = NA) +
+  geom_jitter(aes(fill = new_visit_num), width = 0.1, height = 0, alpha = 0.7, size = 2.5, pch = 21) +
+  scale_fill_brewer(palette = 'Spectral') +
+  theme_bw(base_size = 20) +
+  theme(legend.position = 'none') +
+  facet_wrap(~treatment_group,
+             labeller = labeller(treatment_group = treat_group_labs)) +
+  stat_pvalue_manual(wu_art_lmerStrat_contrast,
+                     step.group.by = 'treatment_group',
+                     step.increase = 0.1,
+                     hide.ns = TRUE,
+                     label = 'p.adj.signif') +
+  scale_x_discrete(labels = visit_x_labs) +
+  labs(x = 'Visit',
+       y = 'Average Distance',
+       title = 'Weighted UniFrac Distance from Healthy Controls'))
+```
+
+## **Stat heat plots**
+unweighted unifrac has no significant differences so not plotting!
+
+weighted unifrac only 
+```{r, fig.width=15, fig.height=5}
+## calculating difference bt means to give directionality
+wu_treatGroup_strat_diffs <- calc_diff_means(input_table = factored_wu_dist_table,
+                                             first_group = 'treatment_group',
+                                             second_group = 'new_visit_num',
+                                             mean_value = 'hc_av_dist',
+                                             post_hoc_test = proc_wu_lmer_treatGroup_strat_contrast) %>% 
+  filter(new_visit_num != 0)
+
+(wu_treatGroup_strat_heatPlot <- apppleplots::stat_heat_plot(input_table = wu_treatGroup_strat_diffs,
+                            x_value = 'new_visit_num',
+                            y_value = 'group2',
+                            x_value_type = 'discrete',
+                            x_labels = visit_x_labs,
+                            y_value_type = 'discrete',
+                            y_labels = treat_group_labs,
+                            tile_fill = 'stat_diff_means',
+                            text_value = 'signif',
+                            legend_name = "Group 1 -\nGroup 2",
+                            facet_by = 'group1',
+                            facet_labels = treat_group_labs,
+                            x_name = 'Visit',
+                            y_name = 'Group 2',
+                            title_content = 'Weighted UniFrac Average Distance from HCs Differences',
+                            pairwise = TRUE,
+                            low_color = "#0D0887FF",
+                            high_color = "#CC4678FF") +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0),
+        plot.subtitle = element_text(hjust = 0.5)))
+```
+
+## **Saving my outputs**
+plots
+```{r}
+save(list = c('uu_dist_plot',
+              'wu_dist_plot',
+              'wu_treatGroup_strat_heatPlot'),
+       file = '../../../../manuscript_figures/ggplots/dysbiosis_score_plots.rdat')
+```
+
+```{r}
+## as a pdf
+ggsave('../plots/uu_hc_avDist_plot.pdf',
+       plot = uu_dist_plot,
+       width = 17,
+       height = 7)
+ggsave('../plots/wu_hc_avDist_plot.pdf',
+       plot = wu_dist_plot,
+       width = 17,
+       height = 7)
+
+
+## as a png
+ggsave('../plots/pngs/uu_hc_avDist_plot.png',
+       plot = uu_dist_plot,
+       width = 17,
+       height = 7)
+ggsave('../plots/pngs/wu_hc_avDist_plot.png',
+       plot = wu_dist_plot,
+       width = 17,
+       height = 7)
+```
+
+stats
+```{r}
+write_tsv(proc_wu_lmer_treatGroup_strat_contrast,
+          '../stats/wu_avDist_treatGroup_strat_postHoc.tsv')
+write_tsv(wu_treatGroup_strat_diffs,
+          '../stats/diffs_wu_avDist_treatGroup_strat_postHoc.tsv')
+```
+
+

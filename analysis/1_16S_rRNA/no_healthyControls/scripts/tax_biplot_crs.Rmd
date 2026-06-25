@@ -18,8 +18,6 @@ library(tidyverse)
 library(ggh4x)
 library(viridis)
 library(ggrepel)
-
-setwd("~/Projects/crestone/laurie_crestone/scripts")
 ```
 
 **Functions**
@@ -177,22 +175,15 @@ make_my_biplot <- function(x_axis,
 
 **File Paths**
 ```{r}
-metadata_FP <- '../data/sif_sample_metadata.tsv'
-#don't have this - was for blood CFUs for C.diff paper
-#cfu_count_FP <- '../../oren_crestone/data/qiime/core_outputs/'
-tax_FP <- '../../oren_crestone/data/qiime/taxonomy.qza'
+metadata_FP <- '../../../4_fecal_immune/data/sif_sample_metadata.tsv'
+tax_FP <- '../data/taxonomy.qza'
 #generated biplots using q_make_biplot_crs.sh
-uu_biplot_FP <- '../data/qiime/core_outputs/crs_uu_biplot_matrix.qza'
-wu_biplot_FP <- '../data/qiime/core_outputs/crs_wu_biplot_matrix.qza'
+uu_biplot_FP <- '../data/crs_uu_biplot_matrix.qza'
+wu_biplot_FP <- '../data/crs_wu_biplot_matrix.qza'
 
-#vendor_labs <- c('Charles River',
-                 #'Taconic')
 treatment_labs <- c('CRS3123 200mg',
                     'CRS123 400mg', 
                     'Vancomycin 125mg')
-# cfuCount_table <- read_tsv(cfu_count_FP) %>% 
-#   select(mouse_id, location, microbe_presence) %>% 
-#   spread(key = 'location', value = 'microbe_presence')
 ```
 
 # **PC1 and PC2**
@@ -209,12 +200,6 @@ uu_files <- prep_my_biplot_files(biplot_fp = uu_biplot_FP,
 
  uu_biplot_points <- uu_files$DFPoints %>% 
   mutate(new_visit_num = as.factor(new_visit_num))
-#                       left_join(cfuCount_table, by = 'mouse_id') %>% 
-#                       mutate(day_post_inf = as.factor(day_post_inf),
-#                              spleen = as.factor(spleen),
-#                              liver = as.factor(liver),
-#                              blood = as.factor(blood)) %>% 
-#                       na.omit()
 
 #added code from Madi to label with Family if no assignment at Genus level 
 uu_biplot_lines <- uu_files$DFLines %>%
@@ -242,12 +227,6 @@ wu_files <- prep_my_biplot_files(biplot_fp = wu_biplot_FP,
 
 wu_biplot_points <- wu_files$DFPoints %>% 
   mutate(new_visit_num = as.factor(new_visit_num))
-#                       left_join(cfuCount_table, by = 'subject_id') %>% 
-#                       mutate(day_post_inf = as.factor(day_post_inf),
-#                              spleen = as.factor(spleen),
-#                              liver = as.factor(liver),
-#                              blood = as.factor(blood)) %>% 
-#                       na.omit()
 
 wu_biplot_lines <- wu_files$DFLines %>%
   mutate(tax_line_label = ifelse(is.na(Species), Genus, Species),
@@ -260,6 +239,7 @@ wu_x_lab <- pcoa_ax_lab(unifrac_var = wu_pcoa_var,
 wu_y_lab <- pcoa_ax_lab(unifrac_var = wu_pcoa_var,
                         col_name = 'PC2')
 ```
+
 **Plots**
 ```{r, fig.width=8.5, fig.height=15}
 ## unweighted unifrac 
@@ -322,7 +302,8 @@ ggsave('../plots/wu_biplot1_2_facet.pdf',
        plot = wu_biplot_facet,
        width = 6.5,
        height = 15)
-save(wu_biplot_facet, file = "../../figures/fig_3a_wu_biplot.rdat")
+
+save(wu_biplot_facet, file = "../../../../manuscript_figures/fig_3a_wu_biplot.rdat")
 ```
 
 # **PC2 and PC3**

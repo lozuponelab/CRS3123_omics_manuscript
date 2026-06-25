@@ -1,0 +1,23 @@
+subject_id,visit_label,vre_culture_status,vre_cfus,vre_diskDiff_status,notes
+128-1002,Screen,Positive,12000000,Positive,
+128-1002,D4,Positive,1200000,Positive,
+116-1006,D17,Positive,ND,ND,"Listing says VRE culture is positive, but no culture counts reported or BLOQ noted, VRE not detected at previous timepoints by any method"
+116-1006,D40,ND,ND,Positive,
+122-1001,Screen,Positive,235000,Positive,
+122-1001,D1 ,Positive,420000,Positive,
+122-1001,D4,Positive,270000,Positive,
+120-2204,Screen,Positive,ND,ND,"Listing says VRE culture is positive, but no culture counts reported, or BLOQ noted"
+120-2204,D1,Negative,100,Positive,"Discrepant results, below detection limit?"
+120-2204,D10,Positive,30000000,ND,above detection limit?
+120-2204,D10-15/TOC,Positive,30000000,Positive,above detection limit?
+120-2204,D17,Positive,30000000,Positive,above detection limit?
+120-2204,D40,ND,ND,Positive,
+122-1002,Screen,Positive,850000,Positive,
+122-1002,D1,Positive,350000,Positive,
+122-1002,D4,Positive,470000,Positive,
+130-1001,Screen,ND,ND,Positive,
+130-1001,D1,Positive,16000000,ND,
+130-1001,D4,Positive,10000000,Positive,above detection limit?
+130-1001,D10,Positive,10000000,Positive,above detection limit?
+130-1001,D10-15/TOC,Positive,10000000,Positive,above detection limit?
+130-1001,D17,Positive,10000000,Positive,above detection limit?

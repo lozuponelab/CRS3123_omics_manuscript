@@ -1,0 +1,1016 @@
+---
+title: "taxonomy_stats"
+output: html_document
+date: "2025-02-25"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(broom)
+library(qiime2R)
+library(apppleplots)
+library(ggpubr)
+library(rstatix)
+library(cgwtools)
+```
+
+## **Functions**
+`source()` pulls in functions placed in other R scripts and saves them to your global environment!
+- here i'm pulling in the statistical analysis functions:
+  - `test_normality()` - does basic R tests for normality on the data
+  - `art_lmer_notStrat()` - runs aligned rank transform lmer on the data in an overall model (not stratified)
+  - `art_lmer_strat()` - runs aligned rank transform lmer on the data in a variable stratified model
+  - `art_lmer_doubleStrat()` - runs aligned rank transform lmer on the data in a model stratified by two variables
+```{r}
+source("../../../art_lmer_functions.R")
+source("../../../normality_function.R")
+source("../../../diff_between_means_calc.R")
+
+abun_file_prep <- function(metadata_fp,
+                           tax_fp,
+                           otu_table_fp,
+                           group_by_cols,
+                           tax_levels,
+                           filter_tax_by = NULL,
+                           filter_tax_col = NULL){
+  ## metadata
+  metadata_file <- read_tsv(metadata_fp) %>%
+    select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>%
+    rename(sampleid = anonymized_name,
+          subject_id = host_subject_id,
+          new_visit_label = visit,
+          new_visit_num = visit_number)
+  ## taxonomy
+  taxonomy <- read_qza(tax_fp)$data %>% 
+    parse_taxonomy() %>% 
+    rownames_to_column('asv')
+  ## otu table 
+  otu_table <- read_qza(otu_table_fp)$data
+  
+  otu_table <- otu_table %>% 
+    as_tibble(rownames = 'asv') %>% 
+    gather(-asv, key = sampleid, value = abun) %>% 
+    group_by(sampleid) %>% 
+    mutate(rel_abun = abun/sum(abun)) %>% 
+    mutate(rel_abun = rel_abun + 0.000001) %>% 
+    filter(sampleid %in% metadata_file$sampleid)
+  ## joining all tables together 
+  wTax_level_groupBy_cols <- append(group_by_cols, tax_levels)
+  
+  abun_table <- otu_table %>% 
+    left_join(metadata_file, by = 'sampleid') %>% 
+    left_join(taxonomy, by = 'asv') %>% 
+    group_by(across(all_of(wTax_level_groupBy_cols))) %>%
+    summarise(rel_abund = sum(rel_abun)) %>% 
+    ungroup()
+  
+  if (is.character(filter_tax_by) & is.character(filter_tax_col)){
+    abun_table <- abun_table %>% 
+      filter(.data[[filter_tax_col]] %in% filter_tax_by)
+  } else {
+    abun_table
+  }
+  
+  ## creating a list for my outputs
+  my_list <- list(Taxonomy = taxonomy,
+                  OTUTable = otu_table,
+                  AbundanceTable = abun_table)
+  return(my_list)
+}
+
+## small function to assign a value to a key in a dataframe column (i.e. numbers to actual categorical variables)
+values_to_keys <- function(input_table,
+                           key_col_name,
+                           value_col_name,
+                           key_value_list,
+                           col_order_list){
+  
+  input_table[value_col_name] <- unlist(lapply(unlist(input_table[key_col_name]), 
+                                        FUN = function(x){key_value_list[[x]]}))
+  
+  output_table <- input_table %>%
+    select(all_of(col_order_list), everything())
+  
+  return(output_table)
+}
+```
+
+## **Reading in files and data wrangling**
+
+**File paths**
+```{r}
+tax_FP <- '../data/taxonomy.qza'
+otu_table_FP <- '../data/taxOnly_otu_table.qza'
+proc_seq_meta_fp <- '../../../../data_submission/1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+vre_data_fp <- '../data/vre_data.csv'
+
+## global lists for renaming plot labels
+visit_x_labs <- c('1' = 'Screen',
+                  '2' = 'D1',
+                  '3' = 'D4',
+                  '4' = 'TOC',
+                  '5' = 'D17', 
+                  '6' = 'D40', 
+                  '7' = 'D70') 
+
+treat_group_labs <- c('CRS3123 200mg',
+                      'CRS3123 400mg',
+                      'Vancomycin 125mg')
+names(treat_group_labs) <- c('CRS3123_200mg_po_bid',
+                             'CRS3123_400mg_po_bid',
+                             'Vancomycin_125mg_po_qid')
+
+special_treatGroup_x_labs <- c('CRS3123\n200mg',
+                               'CRS3123\n400mg',
+                               'Vancomycin\n125mg')
+
+genus_labs <- c('Clostridioides',
+                'Escherichia-Shigella',
+                'Enterococcus',
+                'Bifidobacterium',
+                'Bacteroides',
+                'Lactobacillus')
+names(genus_labs) <- c(1, 2, 3, 4, 5, 6)
+```
+
+**Prepping abundance table**
+```{r}
+metadata <- read_tsv(proc_seq_meta_fp) %>%
+  select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>%
+  rename(sampleid = anonymized_name,
+         subject_id = host_subject_id,
+         new_visit_label = visit,
+         new_visit_num = visit_number)
+
+## only taking VRE data for subjects/visits that have positive reads for culture AND disk diffusion
+## 14/22 samples had positives for both culture and disk diffusion
+vre_df <- read_csv(vre_data_fp)
+
+vre_df <- vre_df %>% 
+  filter(vre_culture_status == 'Positive') %>% 
+  select(subject_id, visit_label, vre_culture_status) %>%
+  rename(new_visit_label = visit_label)
+
+abun_col_list <- c('sampleid',
+                   'subject_id',
+                   'new_visit_num',
+                   'new_visit_label',
+                   'treatment_group')
+
+wanted_family <- c('Enterobacteriaceae')
+
+wanted_genus <- c('Bifidobacterium',
+                  'Blautia',
+                  'Enterococcus',
+                  'Clostridioides',
+                  'Lactobacillus',
+                  'Bacteroides',
+                  'Escherichia-Shigella')
+
+## all genera table
+abun_files <- abun_file_prep(metadata_fp = proc_seq_meta_fp,
+                             tax_fp = tax_FP,
+                             otu_table_fp = otu_table_FP,
+                             group_by_cols = abun_col_list,
+                             tax_levels = "Genus",
+                             filter_tax_by = wanted_genus,
+                             filter_tax_col = 'Genus')
+
+proc_abun_table <- abun_files$AbundanceTable
+
+(proc_abun_table <- proc_abun_table %>% 
+  na.omit() %>% 
+  mutate(new_visit_num = as.numeric(new_visit_num),
+         genus_order = case_when(
+           Genus == 'Clostridioides' ~ 1,
+           Genus == 'Escherichia-Shigella' ~ 2,
+           Genus == 'Enterococcus' ~ 3,
+           Genus == 'Bifidobacterium' ~ 4,
+           Genus == 'Bacteroides' ~ 5,
+           Genus == 'Blautia' ~ 6,
+           Genus == 'Lactobacillus' ~ 7
+         )) %>% 
+  left_join(vre_df, by = c('subject_id', 'new_visit_label')) %>% 
+  mutate(vre_culture_status = ifelse(is.na(vre_culture_status), "Negative", vre_culture_status)))
+
+## just enterobacteriaceae table
+entero_abun_files <- abun_file_prep(metadata_fp = proc_seq_meta_fp,
+                                    tax_fp = tax_FP,
+                                    otu_table_fp = otu_table_FP,
+                                    group_by_cols = abun_col_list,
+                                    tax_levels = c("Family", "Genus"),
+                                    filter_tax_by = wanted_family,
+                                    filter_tax_col = 'Family')
+
+proc_entero_abun_table <- entero_abun_files$AbundanceTable
+
+proc_entero_abun_table <- proc_entero_abun_table %>%  
+  na.omit() %>% 
+  mutate(new_visit_num = as.numeric(new_visit_num))
+
+## looking at our butyrate producers 
+##"Ruminococcaceae", "Oscillospiraceae"
+buty_abun_files <- abun_file_prep(metadata_fp = proc_seq_meta_fp,
+                                    tax_fp = tax_FP,
+                                    otu_table_fp = otu_table_FP,
+                                    group_by_cols = abun_col_list,
+                                    tax_levels = c("Family"),
+                                    filter_tax_by = c("Lachnospiraceae", "Oscillospiraceae", "Ruminococcaceae"),
+                                    filter_tax_col = 'Family')
+
+proc_buty_abun_table <- buty_abun_files$AbundanceTable
+
+proc_buty_abun_table <- proc_buty_abun_table %>% 
+  na.omit() %>% 
+  mutate(new_visit_num = as.numeric(new_visit_num),
+         log_rel_abund = log10(rel_abund))
+
+
+## just ruminococcus gnavus table
+crestWanted_abun_files <- abun_file_prep(metadata_fp = proc_seq_meta_fp,
+                                    tax_fp = tax_FP,
+                                    otu_table_fp = otu_table_FP,
+                                    group_by_cols = abun_col_list,
+                                    tax_levels = c("Genus"),
+                                    filter_tax_by = c("Ruminococcus", "Enterococcus", "Lachnoclostridium"),
+                                    filter_tax_col = 'Genus')
+
+crestWanted_abun_table <- crestWanted_abun_files$AbundanceTable
+
+proc_crestWanted_abun_table <- crestWanted_abun_table %>%
+  mutate(rel_abund = rel_abund - 0.000001,
+         percent_relative_abundance = rel_abund*100) %>% 
+  select(sampleid, subject_id, treatment_group, new_visit_label, Genus, rel_abund, percent_relative_abundance) %>% 
+  rename(visit = new_visit_label,
+         relative_abundance = rel_abund)
+```
+
+**calculating alpha diversity rarefaction curve**
+```{r}
+rare_otu_table <- read_qza(otu_table_FP)$data
+
+## transposing so rows are sampleids 
+rare_otu_table <- t(rare_otu_table)
+rare_otu_table <- rare_otu_table[rownames(rare_otu_table) %in% metadata$sampleid, ]
+
+vegan::rarecurve(rare_otu_table, step = 1000, label = T)
+```
+
+
+## **Relative abundance over time plots**
+
+**All genera plot**
+```{r, fig.width=17, fig.height=15}
+(genusAbun_plot <- apppleplots::facet_twice_plots(input_table = proc_abun_table,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'genus_order',
+                               facet_cols = 'treatment_group',
+                               row_labs = genus_labs,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = 'Select Genera Relative Abundance') +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)))
+```
+
+**Just Enterobacteriaceae plot**
+```{r, fig.width=17, fig.height=10}
+(entero_genusAbun_plot <- apppleplots::facet_twice_plots(input_table = proc_entero_abun_table,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'Genus',
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = 'Enterobacteriaceae Relative Abundance') +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  # scale_y_continuous(trans = 'log10',
+  #                    labels = scales::comma) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)))
+```
+
+**Just butyrate producers plot**
+everyone is losing a lot of lachnoclostridium, lachnospira, and lachnospiraceae groups w abx 
+```{r, fig.width=15, fig.height=12}
+test_relabun <- proc_buty_abun_table %>% 
+  filter(Family == "Lachnospiraceae") %>% 
+  ungroup() %>% 
+  group_by(new_visit_num, treatment_group, Genus) %>% 
+  mutate(mean_rel_abun = mean(rel_abund)) %>% 
+  distinct(new_visit_num, treatment_group, Genus, mean_rel_abun, sum_rel_abun)
+
+
+(av_lachno_genera_plot <- test_relabun %>% 
+  ggplot(aes(x = new_visit_num, y = mean_rel_abun)) +
+  geom_col(aes(fill = Genus), alpha = 0.8) +
+  theme_bw(base_size = 20) +
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 13),
+        legend.title.position = "top") +
+  facet_wrap(~treatment_group,
+             labeller = labeller(treatment_group = treat_group_labs)) +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  labs(x = 'Study Day',
+       y = 'Average Relative Abundance',
+       title = 'Lachnospiraceae Genera'))
+```
+
+```{r, fig.width=17, fig.height=14}
+## stats
+## prep dataframe
+statsPrep_butyAbun_table <- proc_buty_abun_table %>% 
+    convert_as_factor(subject_id, new_visit_num, treatment_group)
+  
+buty_art_lmer_strat <- art_lmer_doubleStrat(input_table = statsPrep_butyAbun_table,
+                                      strat_variable1 = 'Family',
+                                      strat_variable2 = 'treatment_group',
+                                      model_formula_left = 'log_rel_abund',
+                                      model_formula_right = 'new_visit_num + (1|subject_id)',
+                                      model_contrast_run_by = 'new_visit_num')
+
+buty_strat_contrast <- buty_art_lmer_strat$ARTContrast %>% 
+     rename(p.adj.signif = signif) %>% 
+     mutate(across(all_of(c('group1', 'group2')), ~gsub(., pattern = "new_visit_num*", replacement = "")),
+            y.position = case_when(
+              Family == 'Lachnospiraceae' ~ as.numeric(1),
+              Family == 'Oscillospiraceae' ~ as.numeric(0.02),
+              Family == 'Ruminococcaceae' ~ as.numeric(0.3)))
+
+## plot
+(buty_abun_plot <- apppleplots::facet_twice_plots(input_table = proc_buty_abun_table,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'Family',
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = 'Butyrate-Producing Families Relative Abundance') +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  facet_grid(rows = vars(Family),
+             cols = vars(treatment_group),
+             scales = "free_y",
+             # space = "free_y",
+             labeller = labeller(.cols = treat_group_labs,
+                                 .rows = NULL)) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)) +
+  stat_pvalue_manual(buty_strat_contrast,
+                     step.group.by = c('Family', 'treatment_group'),
+                     step.increase = 0.07,
+                     bracket.nudge.y = -0.7,
+                     tip.length = 0.01,
+                     hide.ns = TRUE,
+                     label = 'p.adj.signif'))
+```
+
+butyrate stats between treat groups at each visit 
+```{r}
+(buty_treatGroup_strat_contrast <- art_lmer_doubleStrat(input_table = statsPrep_butyAbun_table,
+                                      strat_variable1 = 'Family',
+                                      strat_variable2 = 'new_visit_num',
+                                      model_formula_left = 'log_rel_abund',
+                                      model_formula_right = 'treatment_group',
+                                      model_contrast_run_by = 'treatment_group')$ARTContrast)
+```
+
+
+
+**Just ruminococcus_gnavus_group plot**
+```{r, fig.width=16, fig.height=5}
+(ruminoG_genusAbun_plot <- apppleplots::facet_twice_plots(input_table = proc_ruminoG_abun_table,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'Genus',
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = 'Ruminococcus gnavus Relative Abundance') +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)))
+```
+
+## **Individual genus plots (for loop)**
+writing a for loop for this bc I'm lazy 
+LOG10 TRANSFORMED Y-AXIS PLOTS !!
+```{r, fig.width=15, fig.height=5.5}
+genus_plots_log10 <- c('Clostridioides',
+                        'Bifidobacterium',
+                        'Blautia',
+                        'Bacteroides',
+                        'Enterococcus',
+                        'Lactobacillus',
+                        'Escherichia-Shigella')
+all_genus_stats <- tibble()
+for (genus in unique(unlist(genus_plots_log10))) {
+  ## filter table to only include wanted genus
+  genus_filt_df <- proc_abun_table %>% 
+    filter(Genus == genus) %>% 
+    mutate(log_rel_abund = log10(rel_abund)) %>% 
+    convert_as_factor(subject_id, new_visit_num, treatment_group)
+  
+  ## running stats on changes in genus rel abun between visits within treatment groups for plots
+  perGenus_art_lmer_strat <- art_lmer_strat(input_table = genus_filt_df,
+                                           strat_variable = 'treatment_group',
+                                           model_formula_left = 'log_rel_abund',
+                                           model_formula_right = 'new_visit_num + (1|subject_id)',
+                                           model_contrast_run_by = 'new_visit_num')
+
+  perGenus_strat_contrast <- perGenus_art_lmer_strat$ARTContrast %>% 
+     rename(p.adj.signif = signif) %>% 
+     mutate(across(all_of(c('group1', 'group2')), ~gsub(., pattern = "new_visit_num*", replacement = "")),
+            y.position = as.numeric(0.0002),
+            Genus = genus)
+  
+  all_genus_stats <- rbind(all_genus_stats, perGenus_strat_contrast)
+  
+  ## use genus to put together variable name and plot title so I can save it to that 
+  variable_name <- paste(tolower(genus), "only_plot", sep = "_")
+  plot_title <- paste(genus, "Relative Abundance", sep = " ")
+
+  assign(variable_name,
+         apppleplots::facet_twice_plots(input_table = genus_filt_df,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = NULL,
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = plot_title) +
+        geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+        theme_bw(base_size = 20) +
+        theme(strip.text.y.right = element_text(angle = 0)) +
+        stat_pvalue_manual(perGenus_strat_contrast,
+                           step.group.by = c('treatment_group'),
+                           step.increase = 0.1,
+                           hide.ns = TRUE,
+                           label = 'p.adj.signif')
+          )
+}
+
+bacteroides_only_plot
+bifidobacterium_only_plot
+blautia_only_plot
+clostridioides_only_plot
+enterococcus_only_plot
+`escherichia-shigella_only_plot`
+lactobacillus_only_plot
+```
+
+NOT LOG10 TRANSFORMED Y-AXIS PLOT !!
+```{r, fig.width=15, fig.height=5}
+genus_plots_notLog10 <- c('Bifidobacterium',
+                          'Blautia')
+
+for (genus in unique(unlist(genus_plots_notLog10))) {
+  ## filter table to only include wanted genus
+  genus_filt_df <- proc_abun_table %>% 
+    filter(Genus == genus)
+  
+  ## use genus to put together variable name and plot title so I can save it to that 
+  variable_name <- paste(tolower(genus), "notLog10_plot", sep = "_")
+  plot_title <- paste(genus, "Relative Abundance", sep = " ")
+  
+  assign(variable_name,
+         apppleplots::facet_twice_plots(input_table = genus_filt_df,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = FALSE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = NULL,
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Relative Abundance',
+                               title_content = plot_title) +
+        scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                           labels = visit_x_labs) +
+        # scale_y_continuous(trans = 'log10',
+        #                    labels = scales::comma) +
+        geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+        theme_bw(base_size = 20) +
+        theme(strip.text.y.right = element_text(angle = 0))
+        )
+}
+
+## not log10 transformed plots
+bifidobacterium_notLog10_plot
+blautia_notLog10_plot
+```
+
+## **Select genera plots (for paper) - includes VRE data**
+everything but lactobacillus basically 
+- take enterococcus out and include separately with VRE data??
+- split plots up into "good guys" and "bad guys"
+
+**Bad guys**
+```{r, fig.width=17, fig.height=9}
+bad_genera <- c('Clostridioides',
+                'Escherichia-Shigella')
+
+bad_abun_table <- proc_abun_table %>% 
+  filter(Genus %in% bad_genera)
+
+bad_genus_stats <- all_genus_stats %>% 
+  filter(Genus %in% bad_genera) %>% 
+  mutate(genus_order = case_when(
+           Genus == 'Clostridioides' ~ 1,
+           Genus == 'Escherichia-Shigella' ~ 2
+         ))
+ 
+(fig3a_plot <- apppleplots::facet_twice_plots(input_table = bad_abun_table,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'genus_order',
+                               facet_cols = 'treatment_group',
+                               row_labs = genus_labs,
+                               col_labs = treat_group_labs,
+                               x_name = 'Visit',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = 'Relative Abundance of Pathogenic Genera') +
+        geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+        theme_bw(base_size = 20) +
+        theme(strip.text.y.right = element_text(angle = 0)) +
+        stat_pvalue_manual(bad_genus_stats,
+                           step.group.by = c('treatment_group', 'genus_order'),
+                           step.increase = 0.06,
+                           hide.ns = TRUE,
+                           label = 'p.adj.signif'))
+```
+
+**VRE data plot (for paper)**
+120-2204 - 
+  VRE: screen, TOC, D17  
+  16S: screen, D1, TOC, D40
+128-1002 - 
+  VRE: screen, D4  
+  16S: screen, D1, D4, D17, D40, D70
+116-1006 - 
+  VRE: D17    
+  16S: screen, D1, TOC, D40
+122-1001 - 
+  VRE: screen, D1, D4  
+  16S: screen, D1, TOC, D17, D40, D70
+122-1002 - 
+  VRE: screen, D1, D4  
+  16S: screen, D1, D4, TOC, D17, D40, D70
+130-1001 - 
+  VRE: D1, D4, TOC, D17  
+  16S: D1, D4, TOC, D17, D40, D70
+```{r, fig.width=15.5, fig.height=5.5}
+vre_abun_table <- proc_abun_table %>% 
+  filter(Genus == 'Enterococcus')
+
+vre_genus_stats <- all_genus_stats %>% 
+  filter(Genus == 'Enterococcus')
+
+vre_color_pal <- c("#CC4678FF",
+                   "#999999")
+
+(fig3b_plot <- apppleplots::facet_twice_plots(input_table = vre_abun_table,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'Genus',
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Visit',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = 'Enterococcus') +
+        geom_jitter(aes(fill = vre_culture_status, alpha = vre_culture_status), 
+                    width = 0.1, height = 0.1, size = 2.5, pch = 21) +
+        scale_fill_manual(breaks = c("Positive",
+                                     "Negative"),
+                          labels = c("Positive",
+                                     "Negative"),
+                          values = vre_color_pal,
+                          name = "VRE Status") +
+        scale_alpha_manual(values = c(0.4, 1)) +
+        guides(alpha = "none") +
+        theme_bw(base_size = 20) +
+        theme(strip.text.y.right = element_text(angle = 0)) +
+        stat_pvalue_manual(vre_genus_stats,
+                           step.group.by = c('treatment_group'),
+                           step.increase = 0.06,
+                           hide.ns = TRUE,
+                           label = 'p.adj.signif') +
+        labs(subtitle = 'Subject VRE Presence'))
+```
+
+**Good guys**
+```{r, fig.width=17, fig.height=9}
+good_genera <- c('Bacteroides',
+                 'Bifidobacterium')
+
+good_abun_table <- proc_abun_table %>% 
+  filter(Genus %in% good_genera)
+
+good_genus_stats <- all_genus_stats %>% 
+  filter(Genus %in% good_genera)
+
+(fig3c_plot <- apppleplots::facet_twice_plots(input_table = good_abun_table,
+                               x_value = 'new_visit_num',
+                               y_value = 'rel_abund',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'Genus',
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Visit',
+                               y_name = 'Relative Abundance (log10)',
+                               title_content = 'Relative Abundance of Beneficial Genera') +
+        geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+        theme_bw(base_size = 20) +
+        theme(strip.text.y.right = element_text(angle = 0)) +
+        stat_pvalue_manual(good_genus_stats,
+                           step.group.by = c('treatment_group', 'Genus'),
+                           step.increase = 0.06,
+                           inherit.aes = FALSE,
+                           hide.ns = TRUE,
+                           label = 'p.adj.signif') +
+    scale_x_discrete(limits = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs))
+```
+
+## **ART LMER Stats**
+
+**Not stratified analysis**
+```{r}
+factored_abun_table <- proc_abun_table %>% 
+  select(sampleid, subject_id, new_visit_num, Genus, rel_abund, treatment_group) %>% 
+  convert_as_factor(subject_id, new_visit_num, Genus, treatment_group)
+
+genusAbun_art_lmer <- art_lmer_notStrat(input_table = factored_abun_table,
+                                        formula_left = 'rel_abund',
+                                        formula_right = 'new_visit_num * Genus * treatment_group + (1|subject_id)',
+                                        contrast_run_by = 'new_visit_num:Genus:treatment_group')
+
+(genusAbun_notStrat_res <- genusAbun_art_lmer$ARTResults)
+(genusAbun_notStrat_contrast <- genusAbun_art_lmer$ARTContrast)
+```
+
+**Stratified by treatment group**
+```{r}
+genusAbun_art_lmer_strat <- art_lmer_strat(input_table = factored_abun_table,
+                                           strat_variable = 'treatment_group',
+                                           model_formula_left = 'rel_abund',
+                                           model_formula_right = 'new_visit_num * Genus + (1|subject_id)',
+                                           model_contrast_run_by = 'new_visit_num:Genus')
+
+(genusAbun_strat_res <- genusAbun_art_lmer_strat$ARTResults)
+(genusAbun_strat_contrast <- genusAbun_art_lmer_strat$ARTContrast)
+```
+
+**Double stratified by genus and visit**
+dont need to add subject_id as a random effect to this model since I'm running the stats between relative abundance of the genera individually for each day and treatment group (so you only have one sample per subject bc its not across the whole timeline)
+```{r}
+genusAbun_art_lmer_doubleStrat <- art_lmer_doubleStrat(input_table = factored_abun_table,
+                                                       strat_variable1 = 'Genus',
+                                                       strat_variable2 = 'new_visit_num',
+                                                       model_formula_left = 'rel_abund',
+                                                       model_formula_right = 'treatment_group',
+                                                       model_contrast_run_by = 'treatment_group')
+
+(genusAbun_doubleStrat_res <- genusAbun_art_lmer_doubleStrat$ARTResults)
+(genusAbun_doubleStrat_contrast <- genusAbun_art_lmer_doubleStrat$ARTContrast)
+```
+
+creating a column in the stat results that translates visit number to study day for ease of understanding
+```{r}
+visit_key_value <- c('1' = 'Screen',
+                     '2' = 'D1',
+                     '3' = 'D4',
+                     '4' = 'D10-15/TOC',
+                     '5' = 'D17',
+                     '6' = 'D40',
+                     '7' = 'D70')
+visit_col_order <- c('Genus', 
+                     'new_visit_num', 
+                     'visit_label')
+
+genusAbun_doubleStrat_res_wValues <- values_to_keys(input_table = genusAbun_doubleStrat_res,
+                                                    key_col_name = 'new_visit_num',
+                                                    value_col_name = 'visit_label',
+                                                    key_value_list = visit_key_value,
+                                                    col_order_list = visit_col_order)
+
+genusAbun_doubleStrat_contrast_wValues <- values_to_keys(input_table = genusAbun_doubleStrat_contrast,
+                                                         key_col_name = 'new_visit_num',
+                                                         value_col_name = 'visit_label',
+                                                         key_value_list = visit_key_value,
+                                                         col_order_list = visit_col_order)
+
+## making contrast results pretty to give to them
+proc_full_genusAbun_doubleStrat_contrast_wValues <- genusAbun_doubleStrat_contrast_wValues %>% 
+  select(Genus, visit_label, new_visit_num, group1, group2, p.value, signif) %>% 
+  rename(visit = visit_label) 
+
+proc_genusAbun_doubleStrat_contrast_wValues <- proc_full_genusAbun_doubleStrat_contrast_wValues %>% 
+  filter(signif != 'ns')
+```
+
+**Stat heat plots**
+for differences in relative abundances of genera/butyrate-producing families at a given time point between treatment groups 
+
+genera differences 
+```{r, fig.width=15, fig.height=8}
+## calculating difference bt means to give directionality
+genusAbun_treatGroup_strat_diffs <- calc_diff_means(input_table = factored_abun_table,
+                                                    first_group = 'treatment_group',
+                                                    second_group = c('Genus', 'new_visit_num'),
+                                                    mean_value = 'rel_abund',
+                                                    post_hoc_test = proc_full_genusAbun_doubleStrat_contrast_wValues) %>% 
+  filter(!(Genus %in% c('Blautia', 'Lactobacillus')))
+
+(genusAbun_treatGroup_strat_heatPlot <- apppleplots::stat_heat_plot(input_table = genusAbun_treatGroup_strat_diffs,
+                            x_value = 'new_visit_num',
+                            y_value = 'group2',
+                            x_value_type = 'discrete',
+                            x_labels = visit_x_labs,
+                            y_value_type = 'discrete',
+                            y_labels = treat_group_labs,
+                            tile_fill = 'stat_diff_means',
+                            text_value = 'signif',
+                            legend_name = "Group 1 -\nGroup 2",
+                            facet_by = 'Genus',
+                            facet_labels = NULL,
+                            x_name = 'Visit',
+                            y_name = 'Group 2',
+                            title_content = 'Treatment Genera 16S Relative Abundance Differences',
+                            pairwise = TRUE,
+                            low_color = "#0D0887FF",
+                            high_color = "#CC4678FF") +
+  facet_grid(Genus~group1,
+             labeller = labeller(group1 = treat_group_labs)) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0),
+        plot.subtitle = element_text(hjust = 0.5)))
+```
+
+butyrate-producing family differences 
+```{r, fig.width=15, fig.height=6}
+## calculating difference bt means to give directionality
+buty_treatGroup_strat_diffs <- calc_diff_means(input_table = statsPrep_butyAbun_table,
+                                               first_group = 'treatment_group',
+                                               second_group = c('Family', 'new_visit_num'),
+                                               mean_value = 'log_rel_abund',
+                                               post_hoc_test = buty_treatGroup_strat_contrast)
+
+## stat heat plot!!
+(buty_treatGroup_strat_heatPlot <- apppleplots::stat_heat_plot(input_table = buty_treatGroup_strat_diffs,
+                            x_value = 'new_visit_num',
+                            y_value = 'group2',
+                            x_value_type = 'discrete',
+                            x_labels = visit_x_labs,
+                            y_value_type = 'discrete',
+                            y_labels = treat_group_labs,
+                            tile_fill = 'stat_diff_means',
+                            text_value = 'signif',
+                            legend_name = "Group 1 -\nGroup 2",
+                            facet_by = 'Family',
+                            facet_labels = NULL,
+                            x_name = 'Visit',
+                            y_name = 'Group 2',
+                            title_content = 'Treatment Butyrate-Producer Family 16S Relative Abundance Differences',
+                            pairwise = TRUE,
+                            low_color = "#0D0887FF",
+                            high_color = "#CC4678FF") +
+  facet_grid(Family~group1,
+             labeller = labeller(group1 = treat_group_labs)) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0),
+        plot.subtitle = element_text(hjust = 0.5)))
+```
+
+## **Saving my outputs**
+
+**crestone wanted genera**
+```{r}
+write_tsv(proc_crestWanted_abun_table,
+          file = '../data/16s_enteroRuminoLachnoclos_relAbun_data.tsv')
+
+## saving processed butyrate producers table for correlation comparisons 
+write_tsv(proc_buty_abun_table,
+          file = '../data/16s_butyProd_relAbun.tsv')
+```
+
+
+**saving figures .rdat file**
+```{r}
+save(list = c('fig3a_plot',
+              'fig3b_plot',
+              'fig3c_plot',
+              'buty_abun_plot',
+              'genusAbun_treatGroup_strat_heatPlot',
+              'buty_treatGroup_strat_heatPlot'),
+      file = "../../../../manuscript_figures/ggplots/taxAbun_plots.rdat")
+```
+
+**pdf versions of plots** 
+```{r}
+ggsave('../plots/genus_relAbun_plot.pdf',
+       plot = genusAbun_plot,
+       width = 17,
+       height = 13)
+ggsave('../plots/enterobacteriaceae_relAbun_plot.pdf',
+       plot = entero_genusAbun_plot,
+       width = 17,
+       height = 7)
+ggsave('../plots/enterococcusxVRE_relAbun_plot.pdf',
+       plot = fig3b_plot,
+       width = 15.5,
+       height = 5.5)
+ggsave('../plots/avLachnoGen_relAbun_plot.pdf',
+       plot = av_lachno_genera_plot,
+       width = 15,
+       height = 12)
+
+## individual genus rel abun plots
+ggsave('../plots/bacteroides_relAbun_plot.pdf',
+       plot = bacteroides_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/bifidobacterium_relAbun_plot.pdf',
+       plot = bifidobacterium_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/bifido_notLog10_relAbun_plot.pdf',
+       plot = bifidobacterium_notLog10_plot,
+       width = 15,
+       height = 5)
+ggsave('../plots/blautia_relAbun_plot.pdf',
+       plot = blautia_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/blautia_notLog10_relAbun_plot.pdf',
+       plot = blautia_notLog10_plot,
+       width = 15,
+       height = 5)
+ggsave('../plots/clostridioides_relAbun_plot.pdf',
+       plot = clostridioides_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/enterococcus_relAbun_plot.pdf',
+       plot = enterococcus_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/escherichiaShigella_relAbun_plot.pdf',
+       plot = `escherichia-shigella_only_plot`,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/lactobacillus_relAbun_plot.pdf',
+       plot = lactobacillus_only_plot,
+       width = 15,
+       height = 5.5)
+```
+
+**png versions of plots** 
+```{r}
+ggsave('../plots/pngs/genus_relAbun_plot.png',
+       plot = genusAbun_plot,
+       width = 17,
+       height = 13)
+ggsave('../plots/pngs/enterobacteriaceae_relAbun_plot.png',
+       plot = entero_genusAbun_plot,
+       width = 17,
+       height = 7)
+ggsave('../plots/pngs/enterococcusxVRE_relAbun_plot.png',
+       plot = fig3b_plot,
+       width = 15.5,
+       height = 5.5)
+
+## individual genus rel abun plots
+ggsave('../plots/pngs/bacteroides_relAbun_plot.png',
+       plot = bacteroides_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/pngs/bifidobacterium_relAbun_plot.png',
+       plot = bifidobacterium_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/pngs/bifido_notLog10_relAbun_plot.png',
+       plot = bifidobacterium_notLog10_plot,
+       width = 15,
+       height = 5)
+ggsave('../plots/pngs/blautia_relAbun_plot.png',
+       plot = blautia_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/pngs/blautia_notLog10_relAbun_plot.png',
+       plot = blautia_notLog10_plot,
+       width = 15,
+       height = 5)
+ggsave('../plots/pngs/clostridioides_relAbun_plot.png',
+       plot = clostridioides_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/pngs/enterococcus_relAbun_plot.png',
+       plot = enterococcus_only_plot,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/pngs/escherichiaShigella_relAbun_plot.png',
+       plot = `escherichia-shigella_only_plot`,
+       width = 15,
+       height = 5.5)
+ggsave('../plots/pngs/lactobacillus_relAbun_plot.png',
+       plot = lactobacillus_only_plot,
+       width = 15,
+       height = 5.5)
+```
+
+**stats**
+```{r}
+## stats
+write_tsv(all_genus_stats,
+          '../stats/perGenus_treatGroup_postHoc.tsv')
+write_tsv(genusAbun_strat_res,
+          '../stats/genusAbun_treatGroup_stratOnly.tsv')
+write_tsv(genusAbun_strat_contrast,
+          '../stats/genusAbun_treatGroup_stratOnly_postHoc.tsv')
+write_tsv(genusAbun_doubleStrat_res_wValues,
+          '../stats/genusAbun_treatGroup_visit_strat.tsv')
+write_tsv(genusAbun_treatGroup_strat_diffs,
+          '../stats/genusAbun_treatGroup_visitStrat_postHoc.tsv')
+write_tsv(proc_genusAbun_doubleStrat_contrast_wValues,
+          '../stats/signifOnly_genusAbun_treatGroup_visitStrat_postHoc.tsv')
+write_tsv(buty_treatGroup_strat_diffs,
+          '../stats/buty_familyAbun_treatGroup_visitStrat_postHoc.tsv')
+```
+
