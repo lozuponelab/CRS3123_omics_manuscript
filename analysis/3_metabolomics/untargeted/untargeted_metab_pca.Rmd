@@ -1,0 +1,595 @@
+---
+title: "untargeted_metab_pca"
+output: html_document
+date: "2025-12-10"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ape)
+library(vegan)
+library(rstatix)
+library(viridis)
+library(cowplot)
+library(ggrepel)
+library(dplyr)
+```
+
+**Functions**
+```{r}
+## calculating different distance metrics for pca (to try)
+## you can put in a character vector of distance metrics supported by 
+## vegan's vegdist and this will calculate pcas for all of them 
+compare_distances <- function(matrix,
+                              method_list){
+  out_list <- list()
+  for(wanted_method in unlist(method_list)){
+    dist <- vegan::vegdist(matrix, 
+                           method = wanted_method)
+    pca <- ape::pcoa(dist)
+    method_out <- list('DistMatrix' = dist,
+                       'PCA' = pca)
+    out_list[[wanted_method]] = method_out
+  }
+  return(out_list)
+}
+```
+
+**File paths**
+```{r}
+lipid_compounds_fp <- '../data/lipid_10perc_samples_blankSubtracted.txt'
+lipid_sampleKey_fp <- '../data/lipid_parameters_dedup_converted.csv'
+aq_compounds_fp <- '../data/SBAQ_10perc_samples_blankSubtracted.txt'
+aq_sampleKey_fp <- '../data/SBAQ_parameters_converted_dedup.csv'
+visit_key_fp <- '../data/visit_name_key.tsv'
+metadata_fp <- '../../../data_submission/1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+
+new_metab_col_names <- c('compound_name',
+                         'compound_entityList',
+                         'mass',
+                         'retention_time', 
+                         'ion_species',
+                         'annotations', 
+                         'ms1_composite_spectrum',
+                         'kegg_id',
+                         'cas_number',
+                         'chebi_id',
+                         'hmp_id',
+                         'lmp_id',
+                         'metlin_id',
+                         'Samples',
+                         'compound_log2_abun')
+
+timepoint_key <- c('Screening' = 'Screening Cooled',
+                   'Day 1' = 'D1 Cooled',
+                   'Day 4' = 'D4 Cooled',
+                   'TOC/FUV 1' = 'TOC/FUV1 Cooled',
+                   'Day 17/FUV2' = 'FUV2 Cooled',
+                   'Day 40/FUV2' = 'FUV2 Cooled')
+
+metab_info_cols <- c('compound_name',
+                         'compound_entityList',
+                         'mass',
+                         'retention_time', 
+                         'ion_species',
+                         'annotations', 
+                         'ms1_composite_spectrum',
+                         'kegg_id',
+                         'cas_number',
+                         'chebi_id',
+                         'hmp_id',
+                         'lmp_id',
+                         'metlin_id')
+
+treat_group_labs <- c('CRS3123_200mg_po_bid' = 'CRS3123 200mg',
+                      'CRS3123_400mg_po_bid' = 'CRS3123 400mg',
+                      'Vancomycin_125mg_po_qid' = 'Vancomycin 125mg')
+
+visit_labs <- c('1' = 'Pre (Screen)',
+                  '2' = 'Pre (D1)',
+                  '1.2' = 'Pre (Screen, D1)',
+                  '3' = 'During (D4)',
+                  '4' = 'TOC',
+                  '5' = 'Post (D17)') 
+```
+
+**Reading in files**
+```{r}
+##subject_info_df <- read_tsv(subject_info_fp)
+visit_key_df <- read_tsv(visit_key_fp)
+## metadata so I can match data up with sampleids
+mini_meta <- read_tsv(metadata_fp) %>% 
+  select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>%
+  rename(sampleid = anonymized_name,
+         subject_id = host_subject_id,
+         new_visit_label = visit,
+         new_visit_num = visit_number) %>%
+  ## add visit name key to combine w untargeted metab data
+  left_join(visit_key_df, by = "sampleid")
+```
+
+**Data wrangled**
+- compound_entityList = mass@retention_time (unique identifiers)
+- there should be 171 samples 
+- lipid fraction has 1989 compounds
+- aqueous fraction has 2539 compounds
+
+```{r}
+## setting up nested named list(s) as an easy input for the for loop
+## also can keep track of the exact inputs here instead of searching through
+## the code below 
+fraction_list <- list('fraction' = list('lipid' = list('comp_fp' = lipid_compounds_fp,
+                                                       'key_fp' = lipid_sampleKey_fp),
+                                        'aq' = list('comp_fp' = aq_compounds_fp,
+                                                    'key_fp' = aq_sampleKey_fp)),
+                      'col_list' = new_metab_col_names,
+                      'info_cols' = metab_info_cols,
+                      'timepoint_key' = timepoint_key,
+                      'metadata' = mini_meta)
+```
+
+the actual for loop!
+```{r}
+for(diff_frac in unlist(names(fraction_list[['fraction']]))){
+  ## creating a variable name to assign output list to 
+  out_list_name <- paste0(diff_frac, '_wrangled_list')
+  
+  ## reading in files
+  compounds_df <- read_tsv(fraction_list[['fraction']][[diff_frac]][['comp_fp']],
+                            skip = 7)
+  sampleKey_df <- read_csv(fraction_list[['fraction']][[diff_frac]][['key_fp']]) %>% 
+      select(Samples, `Subject ID`, Timepoint)
+  
+  ## going from wide to long format and renaming columns 
+  int_compounds_df <- compounds_df %>% 
+    gather(all_of(contains('CREST_')), key = 'Samples', value = 'compound_log2_abun') %>% 
+    ## fixed = TRUE matches an exact character string and not regex
+    mutate(Samples = gsub(Samples, pattern = ": Log2(normalized)", replacement = "", fixed = TRUE))
+
+  colnames(int_compounds_df) <- fraction_list[['col_list']]
+  
+  ## processing data to match up with metadata to get sampleids 
+  ## and to be in a format to calculate a distance matrix 
+  proc_compounds_df <- int_compounds_df %>% 
+    select(Samples, compound_entityList, compound_log2_abun) %>% 
+    left_join(sampleKey_df, by = "Samples") %>% 
+    mutate(visit_name_key = fraction_list[['timepoint_key']][Timepoint],
+          ## remove everything after the first space in the subject ids
+          subject_id = gsub(`Subject ID`, pattern = " .*$", replacement = "")) %>% 
+    left_join(fraction_list[['metadata']], by = c("subject_id", "visit_name_key")) %>% 
+    ## 116-1010 and 116-1008 had metabolomics samples but not 16S samples so manually had to fix 
+    mutate(sampleid = ifelse(subject_id == '116-1010' & visit_name_key == 'Screening Cooled', '116-1010.1', sampleid),
+           new_visit_label = ifelse(subject_id == '116-1010' & visit_name_key == 'Screening Cooled', 'Screen', new_visit_label),
+           new_visit_num = ifelse(subject_id == '116-1010' & visit_name_key == 'Screening Cooled', '1', new_visit_num),
+           sampleid = ifelse(subject_id == '116-1008' & visit_name_key == 'D1 Cooled', '116-1008.2', sampleid),
+           new_visit_label = ifelse(subject_id == '116-1008' & visit_name_key == 'D1 Cooled', 'D1', new_visit_label),
+           new_visit_num = ifelse(subject_id == '116-1008' & visit_name_key == 'D1 Cooled', '2', new_visit_num)) %>% 
+    select(!c('Subject ID', 'Timepoint', 'visit_name_key')) %>% 
+    group_by(compound_entityList) %>% 
+    mutate(scaled_compound_log2_abun = scale(as.numeric(compound_log2_abun))[, 1]) %>% 
+    ungroup() %>% 
+    ## filter out al day 40 samples (there are only 5, so 171-5 = 166)
+    filter(new_visit_label != 'D40')
+  
+  ## pulling out additional information that may be useful later into a different df
+  info_df <- int_compounds_df %>% 
+    select(all_of(fraction_list[['info_cols']])) %>% 
+    distinct()
+  
+  ## make pca approved matrix (sampleids as rows, compounds as columns)
+  ## not scaled
+  prePCA <- proc_compounds_df %>% 
+    select(sampleid, compound_entityList, compound_log2_abun) %>% 
+    spread(key = "compound_entityList", value = "compound_log2_abun") %>% 
+    column_to_rownames(var = "sampleid")
+  
+  matrix <- as.matrix(prePCA)
+  
+  ## scaled
+  scaled_prePCA <- proc_compounds_df %>% 
+    select(sampleid, compound_entityList, scaled_compound_log2_abun) %>% 
+    spread(key = "compound_entityList", value = "scaled_compound_log2_abun") %>% 
+    column_to_rownames(var = "sampleid")
+  
+  scaled_matrix <- as.matrix(scaled_prePCA)
+  
+  ## output list
+  assign(out_list_name,
+         list('IntDF' = int_compounds_df,
+              'ProcDF' = proc_compounds_df,
+              'InfoDF' = info_df,
+              'Matrix' = matrix,
+              'ScaledMatrix' = scaled_matrix))
+}
+```
+
+sanity check to make sure all the sampleids mapped okay
+```{r}
+(check_df <- filter(lipid_wrangled_list$ProcDF, is.na(sampleid)))
+
+unique(check_df$subject_id)
+
+sd(lipid_wrangled_list$ProcDF$scaled_compound_log2_abun)
+mean(lipid_wrangled_list$ProcDF$scaled_compound_log2_abun)
+```
+
+fraction of zeroes in data
+- both lipid and aqueous fractions are ~60% zeroes !!
+- could either filter them out or do a bray curtis 
+```{r}
+## lipid
+length(which(lipid_wrangled_list$ProcDF$compound_log2_abun ==0))/length(lipid_wrangled_list$ProcDF$compound_log2_abun)
+
+## aqueous
+length(which(aq_wrangled_list$ProcDF$compound_log2_abun == 0))/length(aq_wrangled_list$ProcDF$compound_log2_abun)
+```
+
+**Putting together more accurate metadata for untargeted metabolomics**
+- the sampleids assigned by the reisdorph lab differ slightly between the aqueous and lipid fractions so I just have two separate columns for how they map to our sampleids 
+```{r}
+lipid_meta <- lipid_wrangled_list$ProcDF %>% 
+  select(sampleid, Samples) %>% 
+  distinct() %>% 
+  rename(lipid_samples = Samples)
+
+aq_meta <- aq_wrangled_list$ProcDF %>% 
+  select(sampleid, subject_id, treatment_group, new_visit_label, new_visit_num, Samples) %>% 
+  distinct() %>% 
+  rename(aqueous_samples = Samples) 
+
+## full metadata!
+untarget_metab_meta <- aq_meta %>% 
+  left_join(lipid_meta, by = 'sampleid') %>% 
+  mutate(visits_comb = ifelse(new_visit_num == '1' | new_visit_num == '2', '1.2', new_visit_num))
+```
+
+
+TO DO:
+- check for autoscale -> mean = 0, sd = 1 for each compound 
+- is any of the data negative? 
+- check for zeroes, if there are a lot, calculate bray curtis distances 
+- log2 transformed (already done)
+- autoscaled - auto scale by compound use scale()
+- pca w euclidean distances 
+
+**Calculating distances and PCAs**
+non-scaled data
+```{r}
+lipid_pcas <- compare_distances(matrix = lipid_wrangled_list$Matrix,
+                                method = c("euclidean", "bray", "manhattan", "canberra"))
+
+aq_pcas <- compare_distances(matrix = aq_wrangled_list$Matrix,
+                             method = c("euclidean", "bray", "manhattan", "canberra"))
+```
+
+scaled data 
+- figure out how to do bray curtis calculations on scaled data (has negative values )
+```{r}
+scaled_lipid_pcas <- compare_distances(matrix = lipid_wrangled_list$ScaledMatrix,
+                                       method = c("euclidean", "manhattan", "canberra"))
+
+scaled_aq_pcas <- compare_distances(matrix = aq_wrangled_list$ScaledMatrix,
+                                    method = c("euclidean", "manhattan", "canberra"))
+```
+
+**Making PCA plots for comparison**
+pcas list
+```{r}
+pcas_list <- list('lipid' = lipid_pcas,
+                  'scaled_lipid' = scaled_lipid_pcas,
+                  'aqueous' = aq_pcas,
+                  'scaled_aqueous' = scaled_aq_pcas)
+```
+
+nested for-loop to make plots for me 
+```{r, fig.width=14, fig.height=7}
+for(fraction in unlist(names(pcas_list))){
+  for(dist in unlist(names(pcas_list[[fraction]]))){
+    plot_var_name <- paste0(fraction, "_", dist, "_plot")
+    plot_title <- paste0(str_replace(fraction, "[_]", " "), " fraction: ", dist)
+    
+    tmp_df <- as.data.frame(pcas_list[[fraction]][[dist]]$PCA$vectors) %>% 
+      rownames_to_column(var = 'sampleid') %>% 
+      left_join(untarget_metab_meta, by = 'sampleid') %>% 
+      select(sampleid, subject_id, treatment_group, new_visit_num, new_visit_label, visits_comb, everything()) %>% 
+      convert_as_factor(new_visit_num)
+    
+    tmp_pc1_var <- paste0('PC1 - ', round(pcas_list[[fraction]][[dist]]$PCA$values$Relative_eig[[1]], 2)*100, '%')
+    tmp_pc2_var <- paste0('PC2 - ', round(pcas_list[[fraction]][[dist]]$PCA$values$Relative_eig[[2]], 2)*100, '%')
+    
+    tmp_plot <- tmp_df %>% 
+      ggplot(aes(x = Axis.1, y = Axis.2)) +
+      geom_point(aes(fill = visits_comb), alpha = 0.7, pch = 21, size = 3.5) +
+      stat_ellipse(geom = "polygon",
+                   alpha = 0.15,
+                   aes(fill = visits_comb)) +
+      theme_bw(base_size = 20) +
+      scale_fill_viridis(option = 'C',
+                         discrete = TRUE,
+                         labels = visit_labs,
+                         name = 'Visits Relative to Treatment') +
+      facet_wrap(~treatment_group,
+                 labeller = labeller(treatment_group = treat_group_labs)) +
+      theme(legend.position = "top") +
+      labs(x = tmp_pc1_var, 
+           y = tmp_pc2_var, 
+           title = plot_title)
+
+    print(tmp_plot)
+    
+    assign(plot_var_name,
+           tmp_plot)
+  }
+}
+```
+
+**Comparisons between plots**
+```{r, fig.width=25, fig.height=25}
+(all_lipid_plots <- plot_grid(lipid_canberra_plot, scaled_lipid_canberra_plot,
+                              lipid_euclidean_plot, scaled_lipid_euclidean_plot,
+                              lipid_manhattan_plot, scaled_lipid_manhattan_plot,
+                              lipid_bray_plot,
+                              nrow = 4,
+                              labels = c('a)', '', 'b)', '', 'c)', '', 'd)'),
+                              label_size = 22,
+                              align = c('hv'),
+                              axis = c('tblr')) +
+                    theme(plot.background = element_rect(fill = "white", color = "white")))
+
+(all_aq_plots <- plot_grid(aqueous_canberra_plot, scaled_aqueous_canberra_plot,
+                           aqueous_euclidean_plot, scaled_aqueous_euclidean_plot,
+                           aqueous_manhattan_plot, scaled_aqueous_manhattan_plot,
+                           aqueous_bray_plot,
+                           nrow = 4,
+                           labels = c('a)', '', 'b)', '', 'c)', '', 'd)'),
+                           label_size = 22,
+                           align = c('hv'),
+                           axis = c('tblr')) +
+                 theme(plot.background = element_rect(fill = "white", color = "white")))
+```
+
+**Fitting vectors for individual compounds**
+may want to break this calculation up by treatment group...
+- filter for just significant things
+- look for values that correlate with vancomycin/timepoint trends 
+- keep getting an sd=0 error when I split by treatment group?
+
+for loop to run vectors by treatment group
+```{r, warning=FALSE}
+treatment_groups <- c('CRS3123_200mg_po_bid',
+                      'CRS3123_400mg_po_bid',
+                      'Vancomycin_125mg_po_qid')
+
+calc_euVector_list <- list('lipid' = list('pca' = lipid_pcas$euclidean$PCA$vectors,
+                                        'matrix' = lipid_wrangled_list$Matrix,
+                                        'info' = lipid_wrangled_list$InfoDF),
+                         'scaled_lipid' = list('pca' = scaled_lipid_pcas$euclidean$PCA$vectors,
+                                               'matrix' = lipid_wrangled_list$ScaledMatrix,
+                                               'info' = lipid_wrangled_list$InfoDF),
+                         'aqueous' = list('pca' = aq_pcas$euclidean$PCA$vectors,
+                                          'matrix' = aq_wrangled_list$Matrix,
+                                          'info' = aq_wrangled_list$InfoDF),
+                         'scaled_aqueous' = list('pca' = scaled_aq_pcas$euclidean$PCA$vectors,
+                                                 'matrix' = aq_wrangled_list$ScaledMatrix,
+                                                 'info' = aq_wrangled_list$InfoDF))
+
+
+for(fraction in unlist(names(calc_euVector_list))){
+  out_name <- paste0(fraction, "_euclidean_vectors_byTreat")
+  tmp_out <- tibble()
+  
+  for(treatment in unlist(treatment_groups)){
+    filt_meta <- untarget_metab_meta %>% 
+      filter(treatment_group == treatment)
+    wanted_samples <- filt_meta[['sampleid']]
+    
+    tmp_df <- as.data.frame(calc_euVector_list[[fraction]][['matrix']])
+    filt_df <- filter(tmp_df, rownames(tmp_df) %in% wanted_samples)
+    
+    tmp_pcas <- as.data.frame(calc_euVector_list[[fraction]][['pca']])
+    filt_pcas <- filter(tmp_pcas, rownames(tmp_pcas) %in% wanted_samples)
+    
+    tmp_vectors <- vegan::envfit(ord = as.matrix(filt_pcas),
+                                 env = filt_df,
+                                 permutations = 999,
+                                 choices = 1:2)
+    
+    proc_tmp_vectors <- as.data.frame(tmp_vectors$vectors$arrows) %>% 
+        rownames_to_column(var = "compound_entityList") %>% 
+        mutate(treatment_group = paste(treatment),
+               r_squared = (tmp_vectors$vectors$r)^2,
+               p_value = tmp_vectors$vectors$pvals,
+               ## idk if adjustment is worth it since the values are all exactly the same
+               p_adj = adjust_pvalue(p_value, method = "BH")) %>% 
+        left_join(calc_euVector_list[[fraction]][['info']], by = "compound_entityList") %>% 
+        filter(p_adj <= 0.05,
+               ## only pull compounds with some sort of annotation 
+               str_detect(compound_name, "^((?!@).)*$")) %>% 
+        group_by(treatment_group) %>% 
+        top_n(20, r_squared) %>% 
+        ungroup() 
+    
+    tmp_out <- rbind(tmp_out, proc_tmp_vectors)
+  }
+  assign(out_name,
+         tmp_out)
+}
+```
+
+**Putting vectors on plots**
+```{r, fig.width=20, fig.height=8}
+plot_list <- list('lipid' = list('plot' = lipid_euclidean_plot,
+                                 'vectors' = lipid_euclidean_vectors_byTreat,
+                                 'top_n' = 10,
+                                 'lines_longer' = 200),
+                  'scaled_lipid' = list('plot' = scaled_lipid_euclidean_plot,
+                                        'vectors' = scaled_lipid_euclidean_vectors_byTreat,
+                                        'top_n' = 10,
+                                        'lines_longer' = 30),
+                  'aqueous' = list('plot' = aqueous_euclidean_plot,
+                                   'vectors' = aqueous_euclidean_vectors_byTreat,
+                                   'top_n' = 10,
+                                   'lines_longer' = 220),
+                  'scaled_aqueous' = list('plot' = scaled_aqueous_euclidean_plot,
+                                          'vectors' = scaled_aqueous_euclidean_vectors_byTreat,
+                                          'top_n' = 10,
+                                          'lines_longer' = 30))
+
+for(fraction in unlist(names(plot_list))){
+  new_plot_name <- paste0("wVectors_", fraction, "_euclidean_plot")
+  
+  longer_by <- plot_list[[fraction]][['lines_longer']]
+  
+  ## decreasing number of vectors on plot (this has the top 20)
+  tmp_filt_vectors <- plot_list[[fraction]][['vectors']] %>% 
+    group_by(treatment_group) %>% 
+    top_n(plot_list[[fraction]][['top_n']], r_squared) %>% 
+    ungroup()
+  
+  tmp_plot <- plot_list[[fraction]][['plot']] +
+    geom_segment(data = tmp_filt_vectors,
+               aes(x = 0, xend = (Axis.1*longer_by), y = 0, yend = (Axis.2*longer_by)),
+               arrow = arrow(length = unit(0.3, "cm"))) +
+    geom_text_repel(data = tmp_filt_vectors,
+                    aes(x = (Axis.1*longer_by), y = (Axis.2*longer_by), label = compound_name),
+                    color = 'black',
+                    position = 'jitter',
+                    max.overlaps = 20,
+                    size = 4,
+                    fontface = 'bold')
+  
+  print(tmp_plot)
+  assign(new_plot_name,
+         tmp_plot)
+}
+```
+
+**Adonis tests**
+- using pcas_list above for distance matrices
+- using untarget_metab_meta for metadata
+- stratify by subject_id
+- run with new_visit_label/visits_comb + treatment_group 
+- run with by = "margin" and "term" (choose which one actually tests what you want it to)
+- treatment group first in formula = tests effects of time (visits - do they differ?) while controlling for different treatment groups
+- visits first = tests effects of treatment group (do they differ?) while controlling for time 
+  - this explains why you get significance when treatment group is first even though the sum of squares doesn't change!
+- filter to only include D4 and TOC visits? 
+- higher F statistic = greater variation between groups than within samples of one group (greater differences between treat groups than samples within a treatment group)
+- procrustes test? 
+- correct p-values for these!
+
+- scaled data decreases aqueous distribution homogeneity (decreases p-values towards significance) but does the opposite for lipid distribution...why?
+```{r}
+## do treat group and visits individually? or create var combining both?
+## this should be roughly equal between groups 
+disp <- betadisper(scaled_lipid_pcas$euclidean$DistMatrix, 
+           group = untarget_metab_meta$treatment_group,
+           type = "centroid")
+## next, plot dispersion values and run anova() on them (p-value should be non-significant) 
+plot(disp)
+anova(disp)
+
+## significant p-values mean that centroids of groups differ significantly 
+## treatment group by itself is v not significant (p-value = 1)
+test <- adonis2(aq_pcas$euclidean$DistMatrix ~ new_visit_label * treatment_group,
+        data = untarget_metab_meta, 
+        permutations = 999,
+        strata = untarget_metab_meta$subject_id,
+        by = "terms")
+
+tidy(test)
+```
+
+pairwise adonis2 tests between treatment groups
+```{r}
+treat_group_comps <- list("crs200_vanc" = c("CRS3123_200mg_po_bid", "Vancomycin_125mg_po_qid"),
+                          "crs400_vanc" = c("CRS3123_400mg_po_bid", "Vancomycin_125mg_po_qid"),
+                          "crs400_200" = c("CRS3123_400mg_po_bid", "CRS3123_200mg_po_bid"))
+
+allFrac_treatGroup_adonis_res <- tibble()
+for(fraction in unlist(names(pcas_list))){
+  ## need to convert to matrix temporarily to filter rows and cols 
+  eu_dist_matrix <- as.matrix(pcas_list[[fraction]]$euclidean$DistMatrix)
+  
+  tmp_treat_group_res <- tibble()
+  for(comp in unlist(names(treat_group_comps))){
+    comp_filt_meta <- filter(untarget_metab_meta, treatment_group %in% treat_group_comps[[comp]])
+    ## filter rows/cols of distance matrix to only include sampleids from selected treatment groups 
+    dist_filt <- eu_dist_matrix[rownames(eu_dist_matrix) %in% comp_filt_meta$sampleid, colnames(eu_dist_matrix) %in% comp_filt_meta$sampleid]
+    
+    tmp_adonis <- adonis2(as.dist(dist_filt) ~ treatment_group * new_visit_label,
+                          data = comp_filt_meta, 
+                          permutations = 9999,
+                          strata = comp_filt_meta$subject_id,
+                          parallel = 4,
+                          by = "terms")
+    
+    tmp_adonis[['compared_groups']] <- comp
+    tmp_adonis <- tidy(tmp_adonis)
+    
+    tmp_treat_group_res <- bind_rows(tmp_treat_group_res, tmp_adonis)
+  }
+  tmp_treat_group_res[['fraction']] <- fraction
+  
+  allFrac_treatGroup_adonis_res <- bind_rows(allFrac_treatGroup_adonis_res, tmp_treat_group_res)
+}
+```
+
+adjusting p-values via BH
+```{r}
+corr_allFrac_treatGroup_adonis_res <- allFrac_treatGroup_adonis_res %>% 
+  mutate(p.adj = p.adjust(p.value, method = "BH"))
+```
+
+**Saving plot outputs**
+ggplots for figure creation
+```{r}
+save(list = c('lipid_euclidean_plot',
+              'scaled_lipid_euclidean_plot',
+              'aqueous_euclidean_plot',
+              'scaled_aqueous_euclidean_plot'),
+     file = '../../../manuscript_figures/ggplots/untargeted_metab.rdat')
+```
+
+```{r}
+ggsave('../plots/pngs/lipid_untargetMetab_dists.png',
+       plot = all_lipid_plots,
+       width = 25,
+       height = 25)
+ggsave('../plots/pngs/aq_untargetMetab_dists.png',
+       plot = all_aq_plots,
+       width = 25,
+       height = 25)
+
+ggsave('../plots/euclidean_lipid_untargetMetab.pdf',
+       plot = lipid_euclidean_plot,
+       width = 14,
+       height = 7)
+ggsave('../plots/pngs/euclidean_lipid_untargetMetab.png',
+       plot = lipid_euclidean_plot,
+       width = 14,
+       height = 7)
+
+ggsave('../plots/euclidean_aqueous_untargetMetab.pdf',
+       plot = aqueous_euclidean_plot,
+       width = 14,
+       height = 7)
+ggsave('../plots/pngs/euclidean_aqueous_untargetMetab.png',
+       plot = aqueous_euclidean_plot,
+       width = 14,
+       height = 7)
+
+## write it out as a .tsv for future reference 
+# write_tsv(untarget_metab_meta,
+#           file = '../data/untargetedMetab_metadata.tsv')
+
+## adonis results between two treatment groups (euclidean distances only)
+write_tsv(corr_allFrac_treatGroup_adonis_res,
+          file = "../stats/untargetMetab_euclidean_pairwiseAdonis.tsv")
+```
+

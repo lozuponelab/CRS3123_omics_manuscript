@@ -1,0 +1,900 @@
+---
+title: "bile_acid_analysis"
+output: html_document
+date: "2025-08-18"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(magrittr)
+library(vroom)
+library(apppleplots)
+```
+
+**Functions**
+```{r}
+source("../../art_lmer_functions.R")
+source("../../diff_between_means_calc.R")
+source("../../test_lmer_vars_function.R")
+
+## function that replaces the need for case_when/if_else statements to assign column values (i.e. bile acids) to
+## larger categories (primary vs secondary)
+## takes a named list (list_names) of character vectors (list_values)
+bin_bile_acids <- function(bin_list,
+                           list_names,
+                           list_values,
+                           input_table,
+                           group_by_cols,
+                           summed_col){
+  all_grouped_cols <- append(group_by_cols, list_names)
+  
+  ## enframe converts named lists/vectors to two col dataframes 
+  summed_df <- enframe(bin_list, name = list_names, value = list_values) %>% 
+    unnest(all_of(list_values)) %>% 
+    right_join(input_table, by = list_values) %>% 
+    group_by(across(all_of(all_grouped_cols))) %>% 
+    summarise(summed_conc = sum(.data[[summed_col]])) %>% 
+    filter(!is.na(.data[[list_names]]))
+  
+  return(summed_df)
+}
+
+## small function that calculates the ratio between two values in a column (takes it from long to wide)
+calculate_ratio <- function(input_table,
+                            ratio_col,
+                            ratio_values,
+                            numerator,
+                            denominator){
+  ratio_df <- input_table %>% 
+    spread(key = ratio_col, value = ratio_values) %>% 
+    mutate(ratio = (.data[[numerator]]/.data[[denominator]]))
+  
+  return(ratio_df)
+}
+
+## pretty big function that takes a named list input with all the wanted selections for running art lmer on the data
+## need to specify:
+## - an input dataframe
+## - cols converted to factors (for art bc it breaks if not)
+## - which to variables you want the tests stratified by 
+## - cols for left and right sides of the formula 
+## - which right hand side variable you want the contrasts run by
+lazy_girl_stats <- function(stats_list){
+  stats_res <- tibble()
+  stats_contrast <- tibble()
+  
+  for (stats in unlist(names(stats_list))){
+    
+    factored_df <- stats_list[[stats]][['df']] %>% 
+      ## this looks a lot scarier than it is, just converting the left hand side col to log10
+      mutate(log_conc = log10(.data[[stats_list[[stats]][['model_formula_left']]]]))
+    
+    ## converting all strat/right hand side vars to factors
+    all_factor_cols <- stats_list[[stats]][['factor']]
+    factored_df[all_factor_cols] <- lapply(factored_df[all_factor_cols], as.factor)
+    
+    if (hasName(stats_list[[stats]], 'strat_variable2') & 
+        hasName(stats_list[[stats]], 'strat_variable')){
+      art_lmer <- art_lmer_doubleStrat(input_table = factored_df,
+                                       strat_variable1 = stats_list[[stats]][['strat_variable']],
+                                       strat_variable2 = stats_list[[stats]][['strat_variable2']],
+                                       model_formula_left = 'log_conc',
+                                       model_formula_right =
+                                         stats_list[[stats]][['model_formula_right']],
+                                       model_contrast_run_by =
+                                         stats_list[[stats]][['model_run_contrast_by']])
+      
+      art_res <- art_lmer$ARTResults %>% 
+        mutate(stats_run = stats) %>% 
+        rename(strat_var = stats)
+      
+      art_contrast <- art_lmer$ARTContrast %>% 
+        mutate(stats_run = stats) %>% 
+        rename(strat_var = stats) 
+    } else if (hasName(stats_list[[stats]], 'strat_variable') & 
+               hasName(stats_list[[stats]], 'strat_variable_name')) {
+      art_lmer <- art_lmer_strat(input_table = factored_df,
+                               strat_variable = stats_list[[stats]][['strat_variable']],
+                               model_formula_left = 'log_conc',
+                               model_formula_right =
+                                         stats_list[[stats]][['model_formula_right']],
+                               model_contrast_run_by =
+                                         stats_list[[stats]][['model_run_contrast_by']])
+  
+      art_res <- art_lmer$ARTResults %>% 
+        mutate(stats_run = stats,
+               strat_var = stats_list[[stats]][['strat_variable_name']])
+      art_contrast <- art_lmer$ARTContrast %>% 
+        mutate(stats_run = stats,
+               strat_var = stats_list[[stats]][['strat_variable_name']]) 
+    } else {
+      print("Please specify at least one variable to stratify the statistics by!")
+    }
+    
+    stats_res <- rbind(stats_res, art_res)
+    stats_contrast <- rbind(stats_contrast, art_contrast)
+  }
+  ## creating list of outputs 
+  my_list <- list('Contrasts' = stats_contrast,
+                  'Results' = stats_res)
+  return(my_list)
+}
+
+## small function to assign a value to a key in a dataframe column (i.e. numbers to actual categorical variables)
+values_to_keys <- function(input_table,
+                           key_col_name,
+                           value_col_name,
+                           key_value_list,
+                           col_order_list){
+  
+  input_table[value_col_name] <- unlist(lapply(unlist(input_table[key_col_name]), 
+                                        FUN = function(x){key_value_list[[x]]}))
+  
+  output_table <- input_table %>%
+    select(all_of(col_order_list), everything())
+  
+  return(output_table)
+}
+```
+
+**File paths**
+```{r}
+bile_acid_fp <- '../data/bile_acid_results.txt'
+visit_key_fp <- '../data/visit_name_key.tsv'
+meta_fp <- '../../../data_submission/1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+
+## global lists for renaming plot labels
+visit_x_labs <- c('1' = 'Screen',
+                  '2' = 'D1',
+                  '3' = 'D4',
+                  '4' = 'TOC',
+                  '5' = 'D17', 
+                  '6' = 'D40', 
+                  '7' = 'D70') 
+
+treat_group_labs <- c('CRS3123 200mg',
+                      'CRS3123 400mg',
+                      'Vancomycin 125mg')
+names(treat_group_labs) <- c('CRS3123_200mg_po_bid',
+                             'CRS3123_400mg_po_bid',
+                             'Vancomycin_125mg_po_bid')
+
+state_labs <- c('conjugated' = 'Conjugated',
+                'deconjugated' = 'Deconjugated',
+                'dehydroxylated' = 'Dehydroxylated')
+
+class_labs <- c('primary' = 'Primary',
+                'secondary' = 'Secondary')
+
+cdiff_effect_labs <- c('promotes' = 'Promotes',
+                       'inhibits' = 'Inhibits')
+```
+
+**Reading in files**
+```{r}
+bile_acid_df <- read_tsv(bile_acid_fp)
+visit_key_df <- read_tsv(visit_key_fp)
+meta_df <- read_tsv(meta_fp) %>% 
+  select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>%
+  rename(sampleid = anonymized_name,
+         subject_id = host_subject_id,
+         new_visit_label = visit,
+         new_visit_num = visit_number) %>%
+  ## add visit name key to combine w bile acid data
+  left_join(visit_key_df, by = "sampleid")
+```
+
+**Data wrangled**
+getting bile acid data ready to be combined with the metadata
+```{r}
+unwanted_cols <- c('SampleType',
+                   'UniqueSampleID',
+                   'BatchNum',
+                   'IntraBatchOrder',
+                   'Rep',
+                   'ProjectCode',
+                   'SampleGroup',
+                   'RequisitionNum',
+                   'ACMUniqueID')
+
+(proc_bileAcid_df <- bile_acid_df %>% 
+  select(!all_of(unwanted_cols)) %>% 
+  mutate(visit = paste(visit, 'Cooled')) %>% 
+  gather(contains('Acid'), key = "bile_acid", value = "concentration") %>% 
+  rename(visit_name_key = visit) %>% 
+  filter(!is.na(subject_id)))
+```
+
+bile acid classifications (for binning):
+- conjugated (created and secreted by the liver, have an amino acid attached)
+  - TaurochenodeoxycholicAcid_(TCDCA)
+  - GlycoursodeoxycholicAcid_(GUDCA)
+  - GlycochenodeoxycholicAcid_(GCDCA)
+  - TaurocholicAcid_(TCA)
+  - GlycocholicAcid_(GCA)
+- deconjugated (amino acid pulled off by microbes)
+  - CholicAcid_(CA)
+  - ChenodeoxycholicAcid_(CDCA)
+  - UrsodeoxycholicAcid_(UDCA)
+- dehydroxylated (-OH group pulled off by microbes, secondary bile acids)
+  - DeoxycholicAcid_(DCA)
+  - LithocholicAcid_(LCA)
+  
+- primary bile acids
+  - TaurochenodeoxycholicAcid_(TCDCA)
+  - GlycoursodeoxycholicAcid_(GUDCA)
+  - GlycochenodeoxycholicAcid_(GCDCA)
+  - TaurocholicAcid_(TCA)
+  - GlycocholicAcid_(GCA)
+  - CholicAcid_(CA)
+  - ChenodeoxycholicAcid_(CDCA)
+- secondary bile acids
+  - UrsodeoxycholicAcid_(UDCA)
+  - DeoxycholicAcid_(DCA)
+  - LithocholicAcid_(LCA)
+  
+- c diff growth promoters
+  - CholicAcid_(CA)
+  - TaurocholicAcid_(TCA)
+- c diff growth inhibitors
+  - ChenodeoxycholicAcid_(CDCA) -> yes, this is a primary bile acid but it inhibits spore germination
+  - UrsodeoxycholicAcid_(UDCA)
+  - DeoxycholicAcid_(DCA)
+  - LithocholicAcid_(LCA)
+  
+bile acid binning lists
+```{r}
+## bile acids im filtering out bc the concentration was basically zero across all treatment groups 
+unwanted_bas <- c('BetaMuricholicAcid_(bMCA)',
+                  'GlycodeoxycholicAcid_(GDCA)',
+                  'GlycolithocholicAcid_(GLCA)',
+                  'TaurodeoxycholicAcid_(TDCA)',
+                  'TaurolithocholicAcid_(TLCA)',
+                  'TauroursodeoxycholicAcid_(TUDCA)')
+
+## based on bile acid state/what reactions have been performed by enzymes
+conjugated_bas <- c('TaurochenodeoxycholicAcid_(TCDCA)',
+                    'GlycoursodeoxycholicAcid_(GUDCA)',
+                    'GlycochenodeoxycholicAcid_(GCDCA)',
+                    'TaurocholicAcid_(TCA)',
+                    'GlycocholicAcid_(GCA)')
+
+deconjugated_bas <- c('CholicAcid_(CA)',
+                      'ChenodeoxycholicAcid_(CDCA)',
+                      'UrsodeoxycholicAcid_(UDCA)')
+
+dehydroxylated_bas <- c('DeoxycholicAcid_(DCA)',
+                        'LithocholicAcid_(LCA)')
+
+state_list <- list('conjugated' = conjugated_bas,
+                   'deconjugated' = deconjugated_bas,
+                   'dehydroxylated' = dehydroxylated_bas)
+
+## based on whether bile acids are primary or secondary
+primary_bas <- c('TaurochenodeoxycholicAcid_(TCDCA)',
+                 'GlycoursodeoxycholicAcid_(GUDCA)',
+                 'GlycochenodeoxycholicAcid_(GCDCA)',
+                 'TaurocholicAcid_(TCA)',
+                 'GlycocholicAcid_(GCA)',
+                 'CholicAcid_(CA)',
+                 'ChenodeoxycholicAcid_(CDCA)')
+
+secondary_bas <- c('DeoxycholicAcid_(DCA)',
+                   'LithocholicAcid_(LCA)',
+                   'UrsodeoxycholicAcid_(UDCA)')
+
+class_list <- list('primary' = primary_bas,
+                   'secondary' = secondary_bas)
+
+## based on whether bile acids promote or inhibit cdiff growth
+promoter_bas <- c('TaurocholicAcid_(TCA)',
+                  'CholicAcid_(CA)')
+
+inhibitor_bas <- c('DeoxycholicAcid_(DCA)',
+                   'LithocholicAcid_(LCA)',
+                   'UrsodeoxycholicAcid_(UDCA)',
+                   'ChenodeoxycholicAcid_(CDCA)')
+
+cdiff_effect_list <- list('promotes' = promoter_bas,
+                          'inhibits' = inhibitor_bas)
+```
+  
+then join with metadata!
+```{r}
+bileAcid_meta_df <- proc_bileAcid_df %>% 
+  left_join(meta_df, by = c("subject_id", "visit_name_key")) %>% 
+  filter(!is.na(concentration)) %>% 
+  mutate(bile_acid = gsub(bile_acid, pattern = "_([^_]+)$", replacement = ""),
+         bile_acid = gsub(bile_acid, pattern = "-", replacement = ""),
+         log_ready_conc = concentration + (min(concentration[concentration != 0])/2))
+
+## pulling out low concentration bile acids and days 
+filt_bileAcid_meta_df <- bileAcid_meta_df %>% 
+  filter(!(bile_acid %in% unwanted_bas),
+         new_visit_num != 6)
+```
+
+using a for loop to do all my data wrangling since its very similar for the three bile acid bins I'm creating
+- i have a named list inside a named list to provide additional flexibility for various function inputs without creating
+separate lists for each input (more concise)
+- also calculate ratios between primary/secondary and promoter/inhibitor bile acids for the qualifying bins 
+```{r}
+sum_bins_cols <- c('sampleid', 'subject_id', 'new_visit_num', 'treatment_group')
+
+bile_acid_bins <- list('state' = list('list' = state_list, 
+                                      'df' = filt_bileAcid_meta_df,
+                                      'grouped_cols' = sum_bins_cols,
+                                      'sum_col_name' = 'log_ready_conc'),
+                       'class' = list('list' = class_list, 
+                                      'df' = filt_bileAcid_meta_df,
+                                      'grouped_cols' = sum_bins_cols,
+                                      'sum_col_name' = 'log_ready_conc',
+                                      'numerator' = 'primary', 
+                                      'denominator' = 'secondary'),
+                       'cdiffEffect' = list('list' = cdiff_effect_list,
+                                            'df' = filt_bileAcid_meta_df,
+                                            'grouped_cols' = sum_bins_cols,
+                                            'sum_col_name' = 'log_ready_conc',
+                                            'numerator' = 'promotes', 
+                                            'denominator' = 'inhibits'))
+
+for (bin in unlist(names(bile_acid_bins))){
+  new_col_name <- paste0('bile_acid_', bin)
+  df_var_name <- paste0('summed_bileAcid_', bin, '_df')
+  
+  tmp_df <- bin_bile_acids(bin_list = bile_acid_bins[[bin]][['list']],
+                           list_names = new_col_name,
+                           list_values = 'bile_acid',
+                           input_table = bile_acid_bins[[bin]][['df']],
+                           group_by_cols = bile_acid_bins[[bin]][['grouped_cols']],
+                           summed_col = bile_acid_bins[[bin]][['sum_col_name']])
+  
+  assign(df_var_name,
+         tmp_df)
+  
+  if (bin == 'class' | bin == 'cdiffEffect'){
+    ratio_df_var_name <- paste0('ratio_bileAcid_', bin, '_df')
+    
+    tmp_ratio_df <- calculate_ratio(input_table = tmp_df,
+                                    ratio_col = new_col_name,
+                                    ratio_values = 'summed_conc',
+                                    numerator = bile_acid_bins[[bin]][['numerator']],
+                                    denominator = bile_acid_bins[[bin]][['denominator']])
+    assign(ratio_df_var_name,
+           tmp_ratio_df)
+  }
+  
+}
+```
+
+**Stats**
+stratified by bile acid and visit between treatment groups 
+- once again, no significant differences in bile acid concentrations between any of the treatment groups lmao
+
+for loop to run stats for everything together and then concatenate into same table 
+```{r}
+## testing concentrations of bile acids between treatment groups 
+treatGroup_stats_list <- list('bile_acid' = list('df' = filt_bileAcid_meta_df,
+                                                'factor' = 
+                                                  c('subject_id', 'new_visit_num', 'treatment_group', 'bile_acid'),
+                                                'strat_variable' = 'bile_acid',
+                                                'strat_variable2' = 'new_visit_num',
+                                                'model_formula_left' = 'log_ready_conc',
+                                                'model_formula_right' = 'treatment_group',
+                                                'model_run_contrast_by' = 'treatment_group'),
+                       'bile_acid_state' = list('df' = summed_bileAcid_state_df,
+                                                'factor' = 
+                                                  c('subject_id', 'new_visit_num', 'treatment_group', 'bile_acid_state'),
+                                                'strat_variable' = 'bile_acid_state',
+                                                'strat_variable2' = 'new_visit_num',
+                                                'model_formula_left' = 'summed_conc',
+                                                'model_formula_right' = 'treatment_group',
+                                                'model_run_contrast_by' = 'treatment_group'),
+                       'bile_acid_class' = list('df' = summed_bileAcid_class_df,
+                                                'factor' = 
+                                                  c('subject_id', 'new_visit_num', 'treatment_group', 'bile_acid_class'),
+                                                'strat_variable' = 'bile_acid_class',
+                                                'strat_variable2' = 'new_visit_num',
+                                                'model_formula_left' = 'summed_conc',
+                                                'model_formula_right' = 'treatment_group',
+                                                'model_run_contrast_by' = 'treatment_group'),
+                       'bile_acid_cdiffEffect' = list('df' = summed_bileAcid_cdiffEffect_df,
+                                                      'factor' = 
+                                                        c('subject_id', 'new_visit_num', 'treatment_group', 
+                                                          'bile_acid_cdiffEffect'),
+                                                      'strat_variable' = 'bile_acid_cdiffEffect',
+                                                      'strat_variable2' = 'new_visit_num',
+                                                      'model_formula_left' = 'summed_conc',
+                                                      'model_formula_right' = 'treatment_group',
+                                                      'model_run_contrast_by' = 'treatment_group'),
+                       'ratio_bileAcid_class' = list('df' = ratio_bileAcid_class_df,
+                                                'factor' = 
+                                                  c('subject_id', 'new_visit_num', 'treatment_group'),
+                                                'strat_variable' = 'new_visit_num',
+                                                'strat_variable_name' = 'primary:secondary_ratio',
+                                                'model_formula_left' = 'ratio',
+                                                'model_formula_right' = 'treatment_group',
+                                                'model_run_contrast_by' = 'treatment_group'),
+                         'ratio_bileAcid_cdiffEffect' = list('df' =
+                                                                ratio_bileAcid_cdiffEffect_df,
+                                                      'factor' = 
+                                                        c('subject_id', 'new_visit_num', 'treatment_group'),
+                                                      'strat_variable' = 'new_visit_num',
+                                                      'strat_variable_name' = 'promoter:inhibitor_ratio',
+                                                      'model_formula_left' = 'ratio',
+                                                      'model_formula_right' = 'treatment_group',
+                                                      'model_run_contrast_by' = 'treatment_group'))
+
+treatGroup_stats <- lazy_girl_stats(stats_list = treatGroup_stats_list)
+
+treatGroup_stats_res <- treatGroup_stats$Results
+treatGroup_stats_contrast <- treatGroup_stats$Contrasts
+
+## only pulling significant results so I can visually parse them 
+signifOnly_treatGroup_stats_contrast <- treatGroup_stats_contrast %>% 
+  filter(signif != 'ns')
+```
+
+for stats between treatment groups
+```{r}
+numOnly_visit_key_value <- c('1' = 'Screen',
+                             '2' = 'D1',
+                             '3' = 'D4',
+                             '4' = 'D10-15/TOC',
+                             '5' = 'D17',
+                             '6' = 'D40')
+
+treatGroup_col_order <- c('strat_var',
+                          'visit_label',
+                          'new_visit_num')
+
+signifOnly_treatGroup_stats_contrast_wValues <- values_to_keys(input_table = 
+                                                                  signifOnly_treatGroup_stats_contrast,
+                                                                key_col_name = 'new_visit_num',
+                                                                value_col_name = 'visit_label',
+                                                                key_value_list = numOnly_visit_key_value,
+                                                                col_order_list = treatGroup_col_order)
+```
+
+stratified by treatment group and bile acid between visits
+- literally no significant differences in the concentration of DCA between time points so idk what to think of that 
+```{r}
+## testing concentrations of bile acids within a treatment group between time points 
+visit_stats_list <- list('bile_acid' = list('df' = filt_bileAcid_meta_df,
+                                            'factor' = 
+                                              c('subject_id', 'new_visit_num', 'treatment_group', 'bile_acid'),
+                                            'strat_variable' = 'treatment_group',
+                                            'strat_variable2' = 'bile_acid',
+                                            'model_formula_left' = 'log_ready_conc',
+                                            'model_formula_right' = 'new_visit_num + (1|subject_id)',
+                                            'model_run_contrast_by' = 'new_visit_num'),
+                       'bile_acid_state' = list('df' = summed_bileAcid_state_df,
+                                                'factor' = 
+                                                  c('subject_id', 'new_visit_num', 'treatment_group',
+                                                    'bile_acid_state'),
+                                                'strat_variable' = 'treatment_group',
+                                                'strat_variable2' = 'bile_acid_state',
+                                                'model_formula_left' = 'summed_conc',
+                                                'model_formula_right' = 'new_visit_num + (1|subject_id)',
+                                                'model_run_contrast_by' = 'new_visit_num'),
+                       'bile_acid_class' = list('df' = summed_bileAcid_class_df,
+                                                'factor' = 
+                                                  c('subject_id', 'new_visit_num', 'treatment_group',
+                                                    'bile_acid_class'),
+                                                'strat_variable' = 'treatment_group',
+                                                'strat_variable2' = 'bile_acid_class',
+                                                'model_formula_left' = 'summed_conc',
+                                                'model_formula_right' = 'new_visit_num + (1|subject_id)',
+                                                'model_run_contrast_by' = 'new_visit_num'),
+                       'bile_acid_cdiffEffect' = list('df' = summed_bileAcid_cdiffEffect_df,
+                                                      'factor' = 
+                                                        c('subject_id', 'new_visit_num', 'treatment_group',
+                                                          'bile_acid_cdiffEffect'),
+                                                      'strat_variable' = 'treatment_group',
+                                                      'strat_variable2' = 'bile_acid_cdiffEffect',
+                                                      'model_formula_left' = 'summed_conc',
+                                                      'model_formula_right' = 'new_visit_num + (1|subject_id)',
+                                                      'model_run_contrast_by' = 'new_visit_num'),
+                       'ratio_bileAcid_class' = list('df' = ratio_bileAcid_class_df,
+                                                'factor' = 
+                                                  c('subject_id', 'new_visit_num', 'treatment_group'),
+                                                'strat_variable' = 'treatment_group',
+                                                'strat_variable_name' = 'primary:secondary_ratio',
+                                                'model_formula_left' = 'ratio',
+                                                'model_formula_right' = 'new_visit_num + (1|subject_id)',
+                                                'model_run_contrast_by' = 'new_visit_num'),
+                         'ratio_bileAcid_cdiffEffect' = list('df' =
+                                                                ratio_bileAcid_cdiffEffect_df,
+                                                      'factor' = 
+                                                        c('subject_id', 'new_visit_num', 'treatment_group'),
+                                                      'strat_variable' = 'treatment_group',
+                                                      'strat_variable_name' = 'promoter:inhibitor_ratio',
+                                                      'model_formula_left' = 'ratio',
+                                                      'model_formula_right' = 'new_visit_num + (1|subject_id)',
+                                                      'model_run_contrast_by' = 'new_visit_num'))
+
+visit_stats <- lazy_girl_stats(stats_list = visit_stats_list)
+
+visit_stats_res <- visit_stats$Results
+visit_stats_contrast <- visit_stats$Contrasts
+
+## only pulling significant results so I can visually parse them 
+signifOnly_visit_stats_contrast <- visit_stats_contrast %>% 
+  filter(signif != 'ns')
+```
+
+for stats between visits
+```{r}
+visit_key_value <- c('new_visit_num1' = 'Screen',
+                     'new_visit_num2' = 'D1',
+                     'new_visit_num3' = 'D4',
+                     'new_visit_num4' = 'D10-15/TOC',
+                     'new_visit_num5' = 'D17',
+                     'new_visit_num6' = 'D40')
+
+group1_visit_col_order <- c('treatment_group', 
+                            'strat_var',
+                            'group1_label',
+                            'group1',
+                            'group2')
+
+group2_visit_col_order <- c('treatment_group', 
+                            'strat_var',
+                            'group1_label',
+                            'group2_label',
+                            'group1',
+                            'group2')
+
+signifOnly_visit_stats_contrast_wGroup1 <- values_to_keys(input_table = 
+                                                                  signifOnly_visit_stats_contrast,
+                                                                key_col_name = 'group1',
+                                                                value_col_name = 'group1_label',
+                                                                key_value_list = visit_key_value,
+                                                                col_order_list = group1_visit_col_order)
+
+signifOnly_visit_stats_contrast_wValues <- values_to_keys(input_table = 
+                                                            signifOnly_visit_stats_contrast_wGroup1,
+                                                                key_col_name = 'group2',
+                                                                value_col_name = 'group2_label',
+                                                                key_value_list = visit_key_value,
+                                                                col_order_list = group2_visit_col_order)
+
+```
+
+linear mixed effects model with all variables 
+- this doesn't show a ton since trends differ between bile acids and treatment groups over time and don't follow a linear curve
+```{r}
+state_nums <- c('conjugated' = 1,
+                'deconjugated' = 2,
+                'dehydroxylated' = 3)
+
+treat_group_nums <- c("CRS3123_200mg_po_bid" = 1,
+                      "CRS3123_400mg_po_bid" = 2,
+                      "Vancomycin_125mg_po_bid" = 3)
+
+visit_bins <- c('1' = 'before',
+                '2' = 'before',
+                '3' = 'during',
+                '4' = 'during',
+                '5' = 'after')
+
+lm_summed_bileAcid_state_df <- summed_bileAcid_state_df %>% 
+  mutate(visit_bins = visit_bins[new_visit_num],
+         ba_state_num = as.numeric(state_nums[bile_acid_state]),
+         treat_group_nums = as.numeric(treat_group_nums[treatment_group])) %>% 
+  filter(bile_acid_state == "conjugated")
+
+## refactoring visit bins so that adonis will compare other time points to toc 
+lm_summed_bileAcid_state_df$visit_bins <- factor(lm_summed_bileAcid_state_df$visit_bins, levels = c("during",
+                                                                        "before",
+                                                                        # "during",
+                                                                        "after"))
+
+mixed_modeling(predictors = c('treat_group_nums', 'new_visit_num', 'visit_bins'),
+               response_vars = c('summed_conc'),
+               random_effect = '(1|subject_id)',
+               data = lm_summed_bileAcid_state_df,
+               reml = FALSE)
+```
+
+**Overall plot!**
+making a giant plot of all bile acid concentrations
+- can probably filter out:
+  - beta muricholic acid
+  - glycodeoxycholic acid
+  - glycolithocholic acid 
+  - taurodeoxycholic acid
+  - taurolithocholic acid
+  - tauroursodeoxycholic acid
+```{r, fig.width=17, fig.height=17}
+(bile_acidConc_plot <- apppleplots::facet_twice_plots(input_table = filt_bileAcid_meta_df,
+                               x_value = 'new_visit_num',
+                               y_value = 'log_ready_conc',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               smooth_line = NULL,
+                               point_alpha = 0,
+                               facet_rows = 'bile_acid',
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Concentration (ug/g) (log10)',
+                               title_content = 'Bile Acid Concentration Over Time') +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  # scale_y_continuous(trans = 'log10',
+  #                    labels = scales::comma) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)))
+```
+
+**Individual plots**
+per bile acid
+- idk why dca is absolutely wiped out in the 200mg group but thats not great 
+```{r, fig.width=13, fig.height=5}
+## named list to rename the bile acids for the plot title 
+bileAcid_name_list <- c("TaurocholicAcid_(TCA)" = "Taurocholic Acid (TCA)",
+                        "TaurochenodeoxycholicAcid_(TCDCA)" = "Taurochenodeoxycholic Acid (TCDCA)",
+                        "GlycocholicAcid_(GCA)" = "Glycocholic Acid (GCA)",
+                        "GlycoursodeoxycholicAcid_(GUDCA)" = "Glycoursodeoxycholic Acid (GUDCA)",
+                        "CholicAcid_(CA)" = "Cholic Acid (CA)",
+                        "GlycochenodeoxycholicAcid_(GCDCA)" = "Glycochenodeoxycholic Acid (GCDCA)",
+                        "UrsodeoxycholicAcid_(UDCA)" = "Ursodeoxycholic Acid (UDCA)",
+                        "ChenodeoxycholicAcid_(CDCA)" = "Chenodeoxycholic Acid (CDCA)",
+                        "DeoxycholicAcid_(DCA)" = "Deoxycholic Acid (DCA)",
+                        "LithocholicAcid_(LCA)" = "Lithocholic Acid (LCA)")
+
+
+for (wanted_bile_acid in unique(unlist(filt_bileAcid_meta_df['bile_acid']))) {
+  ## filter table to only include wanted genus
+  bile_acid_filt_df <- filt_bileAcid_meta_df %>% 
+    filter(bile_acid == wanted_bile_acid)
+  
+  ## adding stats to plots 
+  tmp_stats <- visit_stats_contrast %>% 
+    rename(p.adj.signif = signif,
+           bile_acid = strat_var) %>% 
+    mutate(across(all_of(c('group1', 'group2')), ~gsub(., pattern = "new_visit_num*", replacement = "")),
+           y.position = as.numeric(3),
+           group1 = as.numeric(group1),
+           group2 = as.numeric(group2)) %>% 
+    filter(bile_acid == wanted_bile_acid)
+  
+  ## use genus to put together variable name and plot title so I can save it to that 
+  variable_name <- paste(tolower(wanted_bile_acid), "only_plot", sep = "_")
+  pdf_plot_file_name <- paste0("../plots/", tolower(wanted_bile_acid), "_only_plot.pdf")
+  png_plot_file_name <- paste0("../plots/pngs/", tolower(wanted_bile_acid), "_only_plot.png")
+  plot_title <- paste(bileAcid_name_list[[wanted_bile_acid]], "Concentration Over Time", sep = " ")
+  
+  int_plot <- apppleplots::facet_twice_plots(input_table = bile_acid_filt_df,
+                               x_value = 'new_visit_num',
+                               y_value = 'log_ready_conc',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               smooth_line = NULL,
+                               point_alpha = 0,
+                               facet_rows = NULL,
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Concentration (ug/g) (log10)',
+                               title_content = plot_title) +
+        scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                           labels = visit_x_labs) +
+        geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+        theme_bw(base_size = 20) +
+        theme(strip.text.y.right = element_text(angle = 0)) +
+        stat_pvalue_manual(tmp_stats,
+                           step.group.by = c('treatment_group'),
+                           step.increase = 0.1,
+                           hide.ns = TRUE,
+                           label = 'p.adj.signif')
+  
+  print(int_plot)
+  
+  ## assign plots to a variable so I can continue to look at them 
+  assign(variable_name,
+         int_plot)
+  
+  ## save plots to the plots subdirectory via ggsave (AS A PDF)
+  ggsave(filename = pdf_plot_file_name,
+         plot = int_plot,
+         width = 13,
+         height = 5)
+  
+  ## save plots to the plots/pngs/ subdirectory via ggsave (AS A PNG)
+  ggsave(filename = png_plot_file_name,
+         plot = int_plot,
+         width = 13,
+         height = 5)
+}
+```
+
+**Bile acid bin plots**
+```{r, fig.width=13, fig.height=9}
+bin_plot_list <- list('state' = list('df' = summed_bileAcid_state_df,
+                                     'filter_stats_val' = 'bile_acid_state',
+                                     'y_pos_val' = 3.5,
+                                     'title' = 'Bile Acid Pool Over Time by Degree of Transformation',
+                                     'facet_labs' = state_labs,
+                                     'height' = 9),
+                      'class' = list('df' = summed_bileAcid_class_df,
+                                     'filter_stats_val' = 'bile_acid_class',
+                                     'y_pos_val' = 3.2,
+                                     'title' = 'Bile Acid Pool Over Time by Type',
+                                     'facet_labs' = class_labs,
+                                     'height' = 7),
+                      'cdiffEffect' = list('df' = summed_bileAcid_cdiffEffect_df,
+                                           'filter_stats_val' = 'bile_acid_cdiffEffect',
+                                           'y_pos_val' = 4,
+                                           'title' = 'Bile Acid Pool Over Time by Effect on C. difficile Growth',
+                                           'facet_labs' = cdiff_effect_labs,
+                                           'height' = 7))
+
+for (bin in unlist(names(bin_plot_list))){
+  plot_name <- paste0('bile_acid_', bin, '_plot')
+  facetRow_col_name <- paste0('bile_acid_', bin)
+  pdf_plot_file_name <- paste0("../plots/bile_acid_", bin, "_plot.pdf")
+  png_plot_file_name <- paste0("../plots/pngs/bile_acid_", bin, "_plot.png")
+  
+  ## adding stats to plots 
+  tmp_stats <- visit_stats_contrast %>% 
+    rename(p.adj.signif = signif,
+           "{facetRow_col_name}" := strat_var) %>% 
+    mutate(across(all_of(c('group1', 'group2')), ~gsub(., pattern = "new_visit_num*", replacement = "")),
+           y.position = as.numeric(bin_plot_list[[bin]][['y_pos_val']]),
+           group1 = as.numeric(group1),
+           group2 = as.numeric(group2)) %>% 
+    filter(stats_run == bin_plot_list[[bin]][['filter_stats_val']])
+
+  tmp_plot <- apppleplots::facet_twice_plots(input_table = bin_plot_list[[bin]][['df']],
+                               x_value = 'new_visit_num',
+                               y_value = 'summed_conc',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               smooth_line = NULL,
+                               point_alpha = 0,
+                               facet_rows = facetRow_col_name,
+                               facet_cols = 'treatment_group',
+                               row_labs = bin_plot_list[[bin]][['facet_labs']],
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Concentration (ug/g) (log10)',
+                               title_content = bin_plot_list[[bin]][['title']]) +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)) +
+  stat_pvalue_manual(tmp_stats,
+                     step.group.by = c('treatment_group', facetRow_col_name),
+                     step.increase = 0.1,
+                     hide.ns = TRUE,
+                     label = 'p.adj.signif')
+    
+    
+  print(tmp_plot)
+  
+  assign(plot_name,
+         tmp_plot)
+  
+  ## save plots to the plots subdirectory via ggsave (AS A PDF)
+  ggsave(filename = pdf_plot_file_name,
+         plot = tmp_plot,
+         width = 13,
+         height = bin_plot_list[[bin]][['height']])
+  
+  ## save plots to the plots/pngs/ subdirectory via ggsave (AS A PNG)
+  ggsave(filename = png_plot_file_name,
+         plot = tmp_plot,
+         width = 13,
+         height = bin_plot_list[[bin]][['height']])
+}
+```
+
+**Bile acid ratio plots**
+```{r, fig.width=13, fig.height=5}
+ratio_plot_list <- list('primary:secondary' = list('df' = ratio_bileAcid_class_df,
+                                                   'title' = 'Ratio of primary:secondary Bile Acids Over Time'),
+                        'promotes:inhibits' = list('df' = ratio_bileAcid_cdiffEffect_df,
+                                                   'title' = 'Ratio of promoter:inhibitor Bile Acids Over Time'))
+
+for (ratio in unlist(names(ratio_plot_list))){
+  plot_name <- paste0('bile_acid_', str_replace(ratio, "[:]", "_"), '_plot')
+  pdf_plot_file_name <- paste0("../plots/", plot_name, ".pdf")
+  png_plot_file_name <- paste0("../plots/pngs/", plot_name, ".png")
+  plot_title <- paste0('Bile Acid ', ratio, ' Ratio Over Time')
+
+  tmp_plot <- apppleplots::facet_twice_plots(input_table = ratio_plot_list[[ratio]][['df']],
+                               x_value = 'new_visit_num',
+                               y_value = 'ratio',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               smooth_line = NULL,
+                               point_alpha = 0,
+                               facet_rows = NULL,
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Ratio (log10)',
+                               title_content = ratio_plot_list[[ratio]][['title']]) +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0))
+  
+  print(tmp_plot)
+  
+  assign(plot_name,
+         tmp_plot)
+  
+  ## save plots to the plots subdirectory via ggsave (AS A PDF)
+  ggsave(filename = pdf_plot_file_name,
+         plot = tmp_plot,
+         width = 13,
+         height = 5)
+  
+  ## save plots to the plots/pngs/ subdirectory via ggsave (AS A PNG)
+  ggsave(filename = png_plot_file_name,
+         plot = tmp_plot,
+         width = 13,
+         height = 5)
+  
+}
+```
+
+**Saving my outputs**
+```{r}
+save(list = c('bile_acidConc_plot',
+                'bile_acid_cdiffEffect_plot',
+                'bile_acid_class_plot',
+                'bile_acid_state_plot',
+                'bile_acid_primary_secondary_plot',
+                'bile_acid_promotes_inhibits_plot',
+                'lithocholicacid_(lca)_only_plot',
+                'deoxycholicacid_(dca)_only_plot'),
+       file = '../../../manuscript_figures/ggplots/bile_acid_plots.rdat')
+```
+
+```{r}
+## overall bile acid plot (as a pdf)
+ggsave('../plots/overall_bileAcid_plot.pdf',
+       plot = bile_acidConc_plot,
+       width = 17,
+       height = 17)
+
+## as a png
+ggsave('../plots/pngs/overall_bileAcid_plot.png',
+       plot = bile_acidConc_plot,
+       width = 17,
+       height = 17)
+
+## stats 
+write_tsv(signifOnly_visit_stats_contrast_wValues,
+          file = '../stats/bileAcid_betweenVisits_postHoc.tsv')
+write_tsv(signifOnly_treatGroup_stats_contrast_wValues,
+          file = '../stats/bileAcid_betweenTreatGroups_postHoc.tsv')
+```

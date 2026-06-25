@@ -1,0 +1,384 @@
+---
+title: "scfa_analysis"
+output: html_document
+date: "2025-08-06"
+author: "Madi Apgar"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(magrittr)
+library(vroom)
+library(apppleplots)
+library(cgwtools)
+library(ggpubr)
+```
+
+**Functions**
+```{r}
+source("../../art_lmer_functions.R")
+source("../../diff_between_means_calc.R")
+
+## small function to assign a value to a key in a dataframe column (i.e. numbers to actual categorical variables)
+values_to_keys <- function(input_table,
+                           key_col_name,
+                           value_col_name,
+                           key_value_list,
+                           col_order_list){
+  
+  input_table[value_col_name] <- unlist(lapply(unlist(input_table[key_col_name]), 
+                                        FUN = function(x){key_value_list[[x]]}))
+  
+  output_table <- input_table %>%
+    select(all_of(col_order_list), everything())
+  
+  return(output_table)
+}
+```
+
+**File paths**
+```{r}
+scfa_fp <- '../data/scfa_results.txt'
+visit_key_fp <- '../data/visit_name_key.tsv'
+meta_fp <- '../../../data_submission/1_16S_rRNA_qiita/CRS3123_fecal_samples/crestone_qiita_sample_information.tsv'
+
+## global lists for renaming plot labels
+visit_x_labs <- c('Screen',
+                  'D1',
+                  'D4',
+                  'TOC',
+                  'D17', 
+                  'D40', 
+                  'D70') 
+
+treat_group_labs <- c('CRS3123 200mg',
+                      'CRS3123 400mg',
+                      'Vancomycin 125mg')
+names(treat_group_labs) <- c('CRS3123_200mg_po_bid',
+                             'CRS3123_400mg_po_bid',
+                             'Vancomycin_125mg_po_bid')
+```
+
+**Reading in files**
+```{r}
+scfa_df <- read_tsv(scfa_fp)
+visit_key_df <- read_tsv(visit_key_fp)
+meta_df <- read_tsv(meta_fp) %>% 
+  select(anonymized_name, host_subject_id, visit, visit_number, treatment_group) %>%
+  rename(sampleid = anonymized_name,
+         subject_id = host_subject_id,
+         new_visit_label = visit,
+         new_visit_num = visit_number) %>%
+  ## add visit name key to combine w scfa data
+  left_join(visit_key_df, by = "sampleid")
+```
+
+**Data wrangled**
+first getting scfa df ready to be merged w the metadata so I can get sampleids
+- need to double check that concentrations are already normalized based on dilution factor!!
+```{r}
+unwanted_cols <- c('UniqueID',
+                   'BatchNum',
+                   'RepNum',
+                   'RecquisitionNumber',
+                   'ACMUniqueID',
+                   'ISStandard')
+
+(proc_scfa_df <- scfa_df %>% 
+  select(!unwanted_cols) %>% 
+  mutate(Rerun = ifelse(is.na(Rerun), 0, 1),
+         visit = paste(visit, "Cooled")) %>% 
+  gather(contains("Acid"), key = "scfa", value = "concentration") %>% 
+  rename(visit_name_key = visit) %>% 
+  filter(!is.na(subject_id)))
+```
+
+then joining with metadata to get correct visits
+- might filter out D40 since there are only a handful of samples from that day and it could be throwing the stats off
+```{r}
+(scfa_meta_df <- proc_scfa_df %>% 
+  left_join(meta_df, by = c("subject_id", "visit_name_key")) %>% 
+  filter(!is.na(concentration),
+         new_visit_num != 6) %>% 
+  mutate(log_ready_conc = (concentration + (min(concentration[concentration != 0])/2)),
+         scfa = gsub(scfa, pattern = "-", replacement = "_")))
+```
+**Stats**
+stratified by scfa and visit between treatment groups 
+- wow there really isn't any significant differences at all...
+```{r}
+factored_scfa_meta_df <- scfa_meta_df %>% 
+  convert_as_factor(subject_id, scfa, new_visit_num, treatment_group) %>% 
+  mutate(log_conc = log10(log_ready_conc))
+
+treatGroup_art_lmer_doubleStrat <- art_lmer_doubleStrat(input_table = factored_scfa_meta_df,
+                                                       strat_variable1 = 'scfa',
+                                                       strat_variable2 = 'new_visit_num',
+                                                       model_formula_left = 'concentration',
+                                                       model_formula_right = 'treatment_group',
+                                                       model_contrast_run_by = 'treatment_group')
+
+(treatGroup_doubleStrat_res <- treatGroup_art_lmer_doubleStrat$ARTResults)
+(treatGroup_doubleStrat_contrast <- treatGroup_art_lmer_doubleStrat$ARTContrast)
+```
+
+stratified by treatment group and scfa between visits
+- there are some differences in how hard the concentrations of scfas are hit by the antibiotics..need to investigate more though 
+```{r}
+visit_art_lmer_doubleStrat <- art_lmer_doubleStrat(input_table = factored_scfa_meta_df,
+                                                       strat_variable1 = 'treatment_group',
+                                                       strat_variable2 = 'scfa',
+                                                       model_formula_left = 'log_conc',
+                                                       model_formula_right = 'new_visit_num + (1|subject_id)',
+                                                       model_contrast_run_by = 'new_visit_num')
+
+(visit_doubleStrat_res <- visit_art_lmer_doubleStrat$ARTResults)
+(visit_doubleStrat_contrast <- visit_art_lmer_doubleStrat$ARTContrast)
+
+## only pulling significant results so I can visually parse them 
+rename_stat_cols <- c('group1',
+                      'group2')
+
+signifOnly_visit_doubleStrat_contrast <- visit_doubleStrat_contrast %>% 
+  filter(signif != 'ns') %>% 
+  mutate(across(all_of(rename_stat_cols), ~gsub(pattern = "new_visit_num", replacement = "", .)))
+```
+
+stratified by treatment group and visit between scfas
+- had to filter out d40 because there weren't enough data points to compare (may just filter it out overall)
+```{r}
+noD40_scfa_meta_df <- factored_scfa_meta_df %>% 
+  filter(new_visit_num != "6")
+
+scfaConc_art_lmer_doubleStrat <- art_lmer_doubleStrat(input_table = noD40_scfa_meta_df,
+                                                       strat_variable1 = 'treatment_group',
+                                                       strat_variable2 = 'new_visit_num',
+                                                       model_formula_left = 'concentration',
+                                                       model_formula_right = 'scfa',
+                                                       model_contrast_run_by = 'scfa')
+
+(scfaConc_doubleStrat_res <- scfaConc_art_lmer_doubleStrat$ARTResults)
+(scfaConc_doubleStrat_contrast <- scfaConc_art_lmer_doubleStrat$ARTContrast)
+```
+
+**Plot!**
+making an overall plot of scfa results over time
+- idk how I feel about this since a lot of the trends were erased by log10 but there are also wildly different concentrations 
+- using my plots function bc i'm lazy
+```{r, fig.width=15, fig.height=15}
+(scfaConc_plot <- apppleplots::facet_twice_plots(input_table = scfa_meta_df,
+                               x_value = 'new_visit_num',
+                               y_value = 'log_ready_conc',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'scfa',
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Concentration (mL/g) (log10)',
+                               title_content = 'SCFA Concentration Over Time') +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  # scale_y_continuous(trans = 'log10',
+  #                    labels = scales::comma) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  theme(strip.text.y.right = element_text(angle = 0)))
+```
+
+**mini plot for paper**
+only has acetate, butyrate, and propionate
+```{r, fig.width=13, fig.height=10}
+## making a mini dataframe 
+mini_scfas <- c('AceticAcid',
+                'n_ButanoicAcid',
+                'PropanoicAcid')
+mini_scfa_labs <- c('AceticAcid' = 'Acetate',
+                    'n_ButanoicAcid' = 'Butyrate',
+                    'PropanoicAcid' = 'Propionate')
+
+mini_scfa_meta_df <- scfa_meta_df %>% 
+  filter(scfa %in% mini_scfas)
+
+## stats for plot
+mini_scfa_stats <- visit_doubleStrat_contrast %>% 
+    rename(p.adj.signif = signif) %>% 
+    filter(scfa %in% mini_scfas) %>% 
+    mutate(across(all_of(c('group1', 'group2')), ~gsub(., pattern = "new_visit_num*", replacement = "")),
+           y.position = case_when(
+             scfa == "AceticAcid" ~ 3.7,
+             scfa == "n_ButanoicAcid" ~ 3.2,
+             scfa == "PropanoicAcid" ~ 3.3
+           ),
+           y.position = as.numeric(y.position),
+           group1 = as.numeric(group1),
+           group2 = as.numeric(group2))
+
+## plot  
+(mini_scfaConc_plot <- apppleplots::facet_twice_plots(input_table = mini_scfa_meta_df,
+                               x_value = 'new_visit_num',
+                               y_value = 'log_ready_conc',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = 'scfa',
+                               facet_cols = 'treatment_group',
+                               row_labs = mini_scfa_labs,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Concentration (mL/g) (log10)',
+                               title_content = 'SCFA Concentration Over Time') +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                     labels = visit_x_labs) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+  theme_bw(base_size = 20) +
+  facet_grid(rows = vars(scfa),
+             cols = vars(treatment_group),
+             scales = "free_y",
+             labeller = labeller(scfa = mini_scfa_labs,
+                                 treatment_group = treat_group_labs)) +
+  theme(strip.text.y.right = element_text(angle = 0)) +
+  stat_pvalue_manual(mini_scfa_stats,
+                     step.group.by = c('treatment_group', 'scfa'),
+                     step.increase = 0.1,
+                     hide.ns = TRUE,
+                     label = 'p.adj.signif'))
+```
+
+
+**individual plots**
+- this for loop will save the plots as a .pdf via ggsave 
+```{r, fig.height=6, fig.width=13}
+## named list to rename the scfas for the plot title 
+scfa_name_list <- c('2_methyl_ButanoicAcid' = '2-methyl-Butanoic Acid',
+                    '2_methyl_propanoicAcid' = '2-methyl-Propanoic Acid',
+                    'AceticAcid' = 'Acetic Acid',
+                    'IsopentanoicAcid' = 'Isopentanoic Acid',
+                    'n_ButanoicAcid' = 'n-Butanoic Acid',
+                    'PentanoicAcid' = 'Pentanoic Acid',
+                    'PropanoicAcid' = 'Propanoic Acid')
+
+scfa_y_pos_list <- c('2_methyl_ButanoicAcid' = '2',
+                    '2_methyl_propanoicAcid' = '2.5',
+                    'AceticAcid' = '3.5',
+                    'IsopentanoicAcid' = '1',
+                    'n_ButanoicAcid' = '3.1',
+                    'PentanoicAcid' = '2.2',
+                    'PropanoicAcid' = '3.2')
+
+for (wanted_scfa in unique(unlist(scfa_meta_df['scfa']))) {
+  ## filter table to only include wanted genus
+  scfa_filt_df <- scfa_meta_df %>% 
+    filter(scfa == wanted_scfa)
+  
+  ## adding stats to plots 
+  tmp_stats <- visit_doubleStrat_contrast %>% 
+    rename(p.adj.signif = signif) %>% 
+    mutate(across(all_of(c('group1', 'group2')), ~gsub(., pattern = "new_visit_num*", replacement = "")),
+           y.position = as.numeric(scfa_y_pos_list[[wanted_scfa]]),
+           group1 = as.numeric(group1),
+           group2 = as.numeric(group2)) %>% 
+    filter(scfa == wanted_scfa)
+  
+  ## use genus to put together variable name and plot title so I can save it to that 
+  variable_name <- paste(tolower(wanted_scfa), "only_plot", sep = "_")
+  pdf_plot_file_name <- paste0("../plots/", tolower(wanted_scfa), "_only_plot.pdf")
+  png_plot_file_name <- paste0("../plots/pngs/", tolower(wanted_scfa), "_only_plot.png")
+  plot_title <- paste(scfa_name_list[[wanted_scfa]], "Concentration Over Time", sep = " ")
+  
+  int_plot <- apppleplots::facet_twice_plots(input_table = scfa_filt_df,
+                               x_value = 'new_visit_num',
+                               y_value = 'log_ready_conc',
+                               x_value_type = 'discrete',
+                               y_transform = TRUE,
+                               x_labels = visit_x_labs,
+                               box_group_by = 'new_visit_num',
+                               line_group_by = 'subject_id',
+                               point_alpha = 0,
+                               facet_rows = NULL,
+                               facet_cols = 'treatment_group',
+                               row_labs = NULL,
+                               col_labs = treat_group_labs,
+                               x_name = 'Study Day',
+                               y_name = 'Concentration (mL/g) (log10)',
+                               title_content = plot_title) +
+        scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                           labels = visit_x_labs) +
+        geom_jitter(width = 0.1, height = 0, alpha = 0.4, size = 2.5) +
+        theme_bw(base_size = 20) +
+        theme(strip.text.y.right = element_text(angle = 0)) +
+        stat_pvalue_manual(tmp_stats,
+                           step.group.by = c('treatment_group'),
+                           step.increase = 0.1,
+                           hide.ns = TRUE,
+                           label = 'p.adj.signif')
+  
+  print(int_plot)
+  
+  ## assign plots to a variable so I can continue to look at them 
+  assign(variable_name,
+         int_plot)
+  
+  ## save plots to the plots subdirectory via ggsave (AS A PDF)
+  ggsave(filename = pdf_plot_file_name,
+         plot = int_plot,
+         width = 13,
+         height = 5)
+  
+  ## save plots to the plots subdirectory via ggsave (AS A PNG)
+  ## this is bc powerpoint and google slides are stupid
+  ggsave(filename = png_plot_file_name,
+         plot = int_plot,
+         width = 13,
+         height = 5)
+  
+}
+```
+
+**Saving my outputs**
+```{r}
+save(list = c('aceticacid_only_plot',
+              'propanoicacid_only_plot',
+              'n_butanoicacid_only_plot',
+              'mini_scfaConc_plot'),
+       file = '../../../manuscript_figures/ggplots/scfa_plots.rdat')
+```
+
+saving the pre-wrangled scfa file for correlation comparisons
+```{r}
+write_tsv(mini_scfa_meta_df,
+          file = '../data/proc_scfa_results.tsv')
+```
+
+```{r}
+## as a pdf
+ggsave('../plots/overall_scfa_plot.pdf',
+       plot = scfaConc_plot,
+       width = 15,
+       height = 15)
+
+## as a png
+ggsave('../plots/pngs/overall_scfa_plot.png',
+       plot = scfaConc_plot,
+       width = 15,
+       height = 15)
+
+## stats
+write_tsv(treatGroup_doubleStrat_contrast,
+          file = '../stats/scfa_visit_bt_treatGroup.tsv')
+write_tsv(signifOnly_visit_doubleStrat_contrast,
+          file = '../stats/treatGroup_scfa_bt_visit.tsv')
+```
