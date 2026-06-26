@@ -4,7 +4,7 @@
 - to measure changes in microbiome functional potential (and taxa contributing to them) between baseline (day 1) and test-of-cure (TOC) for the different treatment groups 
 
 > [!CAUTION]
-> The [upstream data processing workflow](#data-processing-workflow) **must be run** before any of the R scripts below! <br/> <br/> The input files for those scripts **are NOT provided** due to size limitations and will need to be regenerated.
+> **Please pay attention to the following caveats:** <br/> <br/> 1. The [upstream data processing workflow](#data-processing-workflow) **MUST BE RUN** before any of the R scripts below! The input files for those scripts **are NOT provided** due to size limitations and will need to be regenerated. <br/> 2. [Analysis script](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/analysis/2_shotgun_metagenomics/scripts) numbering **MUST BE FOLLOWED** to produce the input files required! 
 
 ## Manuscript relevance
 Manuscript figures generated from the contents of this directory:
