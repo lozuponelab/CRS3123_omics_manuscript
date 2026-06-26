@@ -4,7 +4,7 @@
 - to measure microbiome changes over time within and between the different treatment groups (characterized via alpha/beta diversity metrics and relative abundances of assigned taxa)
 
 > [!IMPORTANT]
-> Healthy control fecal samples (n=20) were used for a small subset of this analysis to compare results seen in the groups receiving antibiotics with a healthy gut microbiomes. For clarity, I divided the analysis materials by whether healthy controls were included (`with_healthyControls`) or not (`no_healthyControls`). 
+> Healthy control fecal samples (n=20) were used for a small subset of this analysis to compare results seen in the groups receiving antibiotics with healthy gut microbiomes. For clarity, I divided the analysis materials by whether healthy controls were included (`with_healthyControls`) or not (`no_healthyControls`). 
 
 ## Manuscript relevance
 Manuscript figures generated from the contents of this directory:
