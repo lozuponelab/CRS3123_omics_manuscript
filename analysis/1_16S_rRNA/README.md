@@ -28,6 +28,4 @@ Manuscript figures generated from the contents of this directory:
 [Snakemake](https://snakemake.readthedocs.io/en/stable/) was used to streamline and ensure reproducibility of the basic [QIIME2](https://qiime2.org/) 16S rRNA sequencing data processing workflow, producing the files used in the scripts above. The same workflow was used for analyses with/without healthy control samples. 
 
 > [!NOTE]
-> **Additional instructions on running the workflow are included in the [tutorial](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/1_16S_rRNA/workflow/tutorial/tutorial.md).**
-
-
+> Additional instructions on running the workflow are included in the [tutorial](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/1_16S_rRNA/workflow/tutorial/tutorial.md).
