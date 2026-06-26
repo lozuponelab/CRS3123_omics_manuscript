@@ -1,14 +1,13 @@
 # **Running Madi's 16S Sequencing Microbiome Profiling Data Analysis Workflow!**
 
+> [!IMPORTANT]
+> **DISCLAIMER:** While I am actively working on improving my workflow and making it more user-friendly, I reccommend that those who want to use it in it's current state have some amount of bioinformatics/software experience and be familiar with typical microbiome profiling analysis. <br/> <br/> I hope to soon have a more comprehensive and open-source version of this workflow (named `miasa`) publicly available [here](https://github.com/Comp-Bio-Pipeline-Dev-Team), so stay tuned!
+
 ## **Introduction**
 
-I initially wrote this workflow to help myself out with 16S data analysis for a gut microbiome study I worked on for my graduate thesis.
-Since then, it has proven helpful in subsequent 16S data analysis projects for myself and others, so I decided to put together a quick
-tutorial on how to use it!  
+I initially wrote this workflow to help myself out with 16S data analysis for a gut microbiome study I worked on for my graduate thesis. Since then, it has proven helpful in subsequent 16S data analysis projects for myself and others, so I decided to put together a quick tutorial on how to use it!  
 
 This workflow can take raw 16S sequencing FASTA files and run them through QIIME2 mirobiome profiling software to return alpha and beta diversity measures and taxa barcharts. While users can just directly use QIIME2 for their 16S analysis, I've found this workflow incredibly helpful when analyzing multiple sequencing runs and in the case of human error, which I'm extremely prone to, rerunning the analysis. 
-
-*Disclaimer: While I am actively working on improving my workflow and making it more user-friendly, I reccommend that those who want to use it in it's current state have some amount of bioinformatics/software experience and be familiar with typical microbiome profiling analysis.* 
 
 ## **Workflow Options**
 
@@ -34,47 +33,36 @@ If you've made it this far, congratulations, and I'm so sorry. In this tutorial,
 
 ### **Cloning the GitHub Repository**
 
-Based on how my workflow is designed and best practices, cloning the GitHub repository that contains the workdlow will make your life easier. First, let's ensure that you have git installed locally. If you have git installed, when you type `git` into your console you should get the git help page printed to your screen. If not, nothing will come up, meaning that you'll need to install git. This [handy webpage](https://github.com/git-guides/install-git) provides additional information on how to install git locally. 
-
-If you have macOS like I do, you can use `brew` to install git like so:
-
-```bash
-brew install git 
-```
+Based on how my workflow is designed and best practices, cloning the GitHub repository that contains the workflow will make your life easier. First, let's ensure that you have git installed locally. If you have git installed, when you type `git` into your console you should get the git help page printed to your screen. If not, nothing will come up, meaning that you'll need to install git. This [handy webpage](https://github.com/git-guides/install-git) provides additional information on how to install git locally. 
 
 Once you have git installed locally, navigate to where you would like the cloned repository to live (this is usually in an easily accessible directory). It doesn't matter what you name the directory locally, GitHub doesn't track the overall directory name, just it's contents. Then, run the command below to clone the GitHub repository where the workflow lives. Doing so gives you access to the exact same files that I use to run the workflow. 
 
 ```bash
-git clone https://github.com/madiapgar/crestone.git
+git clone https://github.com/lozuponelab/CRS3123_omics_manuscript.git
 ```
 
-So, after cloing the GitHub repository you should have a file system setup that looks something like this:
+So, after cloing the GitHub repository you should have a file system setup that looks something like this (at least when focusing on this workflow):
 
 ```bash
-$ tree crestone
-crestone
-└── workflow
-    ├── config_files
-    │   ├── config_template.yml
-    │   ├── example_rawSeqOnly_config.yml
-    │   └── example_wBiomTable_config.yml
-    ├── envs
-    │   ├── install_envs_macos.sh
-    │   └── r_env.yml
-    ├── rules
-    │   ├── 01_demux.smk
-    │   ├── 02_dada2.smk
-    │   ├── 03_phylogeny.smk
-    │   └── 04_core_metrics.smk
-    ├── tutorial
-    │   └── tutorial.md
-    ├── run_snakemake.sh
-    └── snakefile
+CRS3123_omics_manuscript/analysis/1_16S_rRNA/workflow/
+├── config_files
+│   └── config_crestone_abx.yml
+├── envs
+│   └── install_envs_macos.sh
+├── rules
+│   ├── 01_demux.smk
+│   ├── 02_dada2.smk
+│   ├── 03_phylogeny.smk
+│   └── 04_core_metrics.smk
+├── run_snakemake.sh
+├── snakefile
+└── tutorial
+    └── tutorial.md
 ```
 
 ### **Installing snakemake and needed conda environments**
 
-This workflow was written via Snakemake so you will first need to install it into a conda environment. I would reccommend creating a new conda environment for this installation so Snakemake is not installed into your base conda environment. 
+This workflow was written via [Snakemake](https://snakemake.readthedocs.io/en/stable/) so you will first need to install it into a conda environment. I would reccommend creating a new conda environment for this installation so Snakemake is not installed into your base conda environment. 
 
 ```bash
 ## activating base conda environment if not activated already
@@ -100,29 +88,22 @@ conda activate snakemake_env
 pip install snakemake
 ```
 
-Since QIIME2 is used in this workflow, you will need to install a conda environment for it prior to running the workflow. Luckily for you, I have written `.yaml` files and a `bash` script for the conda environment installation which are under `workflow/envs`. QIIME2 has different installation instructions based on the OS of your local computer; Linux users will run the `install_envs_linux.sh` script and MacOS users will run the `install_envs_macos.sh` script. **If you already have QIIME2 installed on your computer, you can skip this step.**
+Since QIIME2 is used in this workflow, you will need to [install it](https://library.qiime2.org/quickstart/qiime2) prior to running the workflow. 
 
-```bash
-## linux users
-sh practice_workflow/workflow/envs/install_envs_linux.sh
+> [!NOTE]
+> If you wish to exactly replicate the conditions of the analysis done for this manuscript, install QIIME2 version 2024.2.
 
-## macos (apple silicon/arm64) users
-sh practice_workflow/workflow/envs/install_envs_macos.sh
-```
-
-I currently do not have a `bash` script put together for Windows or non-Apple Silicon MacOS users but QIIME2 installation instructions for those operating systems can be found [here](https://docs.qiime2.org/2024.5/install/native/#install-qiime-2-within-a-conda-environment). 
-
-Hopefully you have now successfully installed all needed conda environments to run the workflow! To double check, run the following code:
+Hopefully you have now successfully installed all needed software to run the workflow! To double check, run the following code:
 
 ```bash
 conda env list
 ```
 
-Where you should see `snakemake_env` and `qiime2-2023.5` listed among your other conda environments.
+Where you should see `snakemake_env` and `YOUR-QIIME-VERSION` listed among your other conda environments.
 
 ### **Setting up your config file**
 
-If you navigate to your `workflow/config_files` directory, you'll notice that I already put a `config_template.yml` file there. Let's open `config_template.yml` and take a look at it. 
+If you navigate to your `CRS3123_omics_manuscript/analysis/1_16S_rRNA/workflow/config_files` directory, you'll notice that I already put the config file used for the analysis there (`config_crestone_abx.yml`). Below I got into more detail about what each individual config input means.
 
 *A note: Like any other software tool, my workflow is something that may need to be run multiple times with differing parameters in order to get to the end result you desire, it just depends on how complicated your data is. The config file is incredibly flexible and can be easily edited between runs to reflect new desired parameters or files so don't be afraid to switch things up!* 
 
@@ -178,6 +159,7 @@ metadata: "what is your QIIME2-approved metadata file called?"
 core_metrics_sampling_depth: 0
 ## -------------------
 ```
+
 Once you have your config file set up the way you want it, you only have one more major thing to set up before you can run my workflow. 
 
 
@@ -185,13 +167,18 @@ Once you have your config file set up the way you want it, you only have one mor
 
 So, after all of your hard work, it's time to attempt to run my workflow. Be warned, you may have to do some debugging but once you get it working, it runs beautifully (much like GitHub).
 
-The most important part of this analysis are the raw 16S sequences so let's place the final piece of the puzzle. Remember back before you cloned the GitHub repository you created a new directory to put it in (in my case, it's called `crestone`)? Let's create a subdirectory under that one to put the raw sequences in.
+The most important part of this analysis are the raw 16S sequences so let's place the final piece of the puzzle. Remember back before you cloned the GitHub repository you created a new directory to put it in (in my case, it's called `CRS3123_omics_manuscript/analysis/1_16S_rRNA`)? Let's create a subdirectory under that one to put the raw sequences in.
 
 ```bash
 mkdir my_raw_16s_data
 ```
 
-Copy your raw 16S sequences into your new `my_raw_16s_data` subdirectory. When you're done, you should have two subdirectories, `my_raw_16s_data` and `workflow` (which you received when you cloned the GitHub repository). Since the workflow doesn't take the completely raw 16S sequences due to them being either single or paired end, the 'raw' data the workflow is expecting a QIIME2 imported object and its associated `barcodes.txt` file. 
+Copy your raw 16S sequences into your new `my_raw_16s_data` subdirectory. When you're done, you should have an additional subdirectory named `my_raw_16s_data` containing the raw 16S sequences. Since the workflow doesn't take the completely raw 16S sequences due to them being either single or paired end, the 'raw' data the workflow is expecting a QIIME2 imported object and its associated `barcodes.txt` file. 
+
+**The sequencing data from this project is _paired end_ but can be analyzed as single end as well!**
+
+> [!NOTE]
+> I've included the `barcodes.txt` files for this project on the repository [here](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/data_submission/1_16S_rRNA_qiita). Alternatively, they can be pulled from [QIITA](https://qiita.ucsd.edu/study/description/16507) as well. 
 
 ```bash
 ## single end qiime import command
@@ -207,7 +194,7 @@ qiime tools import \
     --output-path paired_end_raw_seqs.qza
 ```
 
-I've also included a handy `bash` script under `workflow/` named `run_snakemake.sh`. This basically allows you to freely edit the snakemake command, which could mean switching out your config file, altering the amount of cores on your computer snakemake uses, and adding flags for the workflow as you see fit. So, let's take a look at `run_snakemake.sh`. 
+I've also included a handy `bash` script under `CRS3123_omics_manuscript/analysis/1_16S_rRNA/workflow/` named `run_snakemake.sh`. This basically allows you to freely edit the snakemake command, which could mean switching out your config file, altering the amount of cores on your computer snakemake uses, and adding flags for the workflow as you see fit. So, let's take a look at `run_snakemake.sh`. 
 
 ```bash
 snakemake \
