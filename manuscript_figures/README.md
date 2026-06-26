@@ -1,3 +1,3 @@
 # Manuscript Figures
 
-madi still needs to write me!
+Script, `.rdat` objects, and associated `pdf`/`png` outputs for the manuscript figures.  
