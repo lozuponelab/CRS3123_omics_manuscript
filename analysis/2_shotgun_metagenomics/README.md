@@ -24,16 +24,13 @@ Manuscript figures generated from the contents of this directory:
 Similar to the 16S rRNA data analysis, a separate [Snakemake](https://snakemake.readthedocs.io/en/stable/) workflow was built to process the shotgun metagenomics sequencing data which can be found [here](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/analysis/2_shotgun_metagenomics/workflow). 
 
 > [!WARNING]
-> I wrote this workflow solely to process the shotgun metagenomics FASTQ files and I am the only one who has ever run it. That being said, it's a bit less put together than the 16S rRNA workflow and I would **_highly recommend_** that anyone who tries to run this exact workflow be **_extremely familiar and comfortable_** with the following: <br/> <br/> - snakemake (v8+) <br/> - running jobs in HPCs with slurm <br/> - docker/singularity <br/> - working with large output files <br/> <br/> On that note, I would **_also highly recommend_** that this entire workflow be run in an HPC setting due to space and computational requirements!!
+> I wrote this workflow solely to process the shotgun metagenomics FASTQ files and I am the only one who has ever run it. That being said, it's a bit less put together than the 16S rRNA workflow and I would **_highly recommend_** that anyone who tries to run this exact workflow be **_extremely familiar and comfortable_** with the following: <br/>\t - snakemake (v8+) <br/> - running jobs in HPCs with slurm <br/> - docker/singularity <br/> - working with large output files <br/> <br/> On that note, I would **_also highly recommend_** that this entire workflow be run in an HPC setting due to space and computational requirements!!
 
 ### Table of Contents
 
-[Workflow steps](#workflow-steps)
-
-[Workflow directory auxillary files](#workflow-directory-auxillary-files)
-
-[How it runs](#how-it-runs)
-
+[Workflow steps](#workflow-steps)<br/>
+[Workflow directory auxillary files](#workflow-directory-auxillary-files)<br/>
+[How it runs](#how-it-runs)<br/>
 [Relevant outputs](#relevant-outputs)
 
 
@@ -52,12 +49,12 @@ The following is a high-level overview of the workflow including the software to
 ### Workflow directory auxillary files
 You'll notice that the `workflow` directory contains several additional subdirectories/files besides the main `snakefile`. 
 
-- `config_files`: gives snakemake required input filepaths - must be filled out/updated by the user!
-- `envs`: conda environment .yml files to install the needed software tools (NOTE: can use docker images instead)
-- `profiles`: contains the slurm profile for the workflow - can be adapted by user
-- `snake_utils`: python functions used by the workflow
-- `run_shotgunMeta_workflow.sbatch`: example slurm script for how to run the workflow 
-- `shotgun_metaG_metadata.csv`: metadata file used as an input for the workflow
+- [`config_files`](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/analysis/2_shotgun_metagenomics/workflow/config_files): gives Snakemake required input filepaths
+- [`envs`](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/analysis/2_shotgun_metagenomics/workflow/envs): conda environment .yml files to install the needed software tools _(NOTE: can use Docker images instead)_
+- [`profiles`](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/analysis/2_shotgun_metagenomics/workflow/profiles/default): contains the slurm profile for the workflow
+- [`snake_utils`](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/analysis/2_shotgun_metagenomics/workflow/snake_utils): python functions used by the workflow
+- [`run_shotgunMeta_workflow.sbatch`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/run_shotgunMeta_workflow.sbatch): example slurm script for how to run the workflow 
+- [`shotgun_metaG_metadata.csv`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/shotgun_metaG_metadata.csv): metadata file used as an input for the workflow
 
 ### How it runs 
 Since I don't have this workflow wrapped up nearly as well as the 16S rRNA workflow, fully running it on your own is a bit more involved. I have written out a step-by-step guide below in hopes that it will clarify the process. 
@@ -225,13 +222,13 @@ snakemake \
 Once the conda environments and reference databases are installed and the information in the the config, metadata CSV, slurm profile, and sbatch scripts is updated, the workflow can be run! I would recommend performing some initial dry runs to verify that all inputs are formatted correctly prior to fully running the workflow. 
 
 ### Relevant outputs 
-The workflow gives you several important output files but only a few of them were used for the downstream R analysis featured in the manuscript. These relevant output files fall in two categories: **1.** KEGG Orthology gene counts (for all samples) and **2.** MetaPhlAn per-sample taxonomic assignment.
+The workflow gives you several important output files but only a few of them were used for the downstream `R` analysis featured in the manuscript. These relevant output files fall in two categories: 
 
 **1. KEGG Orthology gene counts:**
 
-Located at `shotgun_meta_out/humann/aggregated/all_genefamilies_namedKO.tsv` after workflow completion, this file of KO gene counts for all samples is the input for [`scripts/1_proc_ko_geneCounts.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/1_proc_ko_geneCounts.R), an overall data wrangling script that breaks the results into two different files (mainly to decrease file size so your R doesn't crash): `noTax_koCounts.tsv.gz` and `withTax_koCounts.tsv.gz`.
+Located at `shotgun_meta_out/humann/aggregated/all_genefamilies_namedKO.tsv` after workflow completion, this file of KO gene counts for all samples is the input for [`scripts/1_proc_ko_geneCounts.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/1_proc_ko_geneCounts.R), an overall data wrangling script that breaks the results into two different files (mainly to decrease file size so your `R` doesn't crash): `noTax_koCounts.tsv.gz` and `withTax_koCounts.tsv.gz`.
 
-**2. Per-sample taxonomic assignment:** 
+**2. MetaPhlAn per-sample taxonomic assignment:** 
 
 Located at `shotgun_meta_out/humann/sampleID/sampleID_humann_temp/sampleID_metaphlan_bugs_list.tsv` after workflow completion, these per-sample bug lists are an input for [`scripts/2_proc_metaphlan_bugsList.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/2_proc_metaphlan_bugsList.R) that concatenates them all together into one file named `all_bugs_list.tsv`.
 
