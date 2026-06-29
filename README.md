@@ -1,4 +1,4 @@
-# CRS3123_omics_manuscript
+# CRS3123 -omics manuscript
 
 This repository includes all code needed to reproduce analysis and figures for CRS3123 -omics manuscript (Apgar and Lyon et al., currently in submission)
 
