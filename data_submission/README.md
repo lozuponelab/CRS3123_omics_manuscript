@@ -1,6 +1,6 @@
 # Data Submission
 
-Scripts and files used to submit raw sequencing 16S rRNA and shotgun metagenomic data to public databases (QIITA and EBI-ENA).
+Scripts and files used to submit raw sequencing 16S rRNA and shotgun metagenomic data to public databases (QIITA and EBI-ENA). Numbered scripts **_must be run_** in that order!
 
 ## Public data links
 
