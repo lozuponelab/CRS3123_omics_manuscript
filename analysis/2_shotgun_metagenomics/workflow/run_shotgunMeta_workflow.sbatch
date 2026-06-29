@@ -34,6 +34,5 @@ snakemake \
     -s workflow/snakefile \
     --configfile workflow/config_files/batchesComb_config.yml \
     --workflow-profile workflow/profiles/default \
-    --until run_posttrimming_multiqc \
     --software-deployment-method apptainer \
     --rerun-incomplete

@@ -1,8 +1,8 @@
 ## config file for shotgun metagenomics pipeline!
 
-raw_seq_in: 'batches_combined' ## need to use symlink bc container paths will break, this worked!! /pl/active/LozuponeLab/crestone_shotgun/raw_data/combined/
+raw_seq_in: 'crs3123_shotgunMeta_raw_seqs' ## need to use symlink bc container paths will break, this worked!! /pl/active/LozuponeLab/crestone_shotgun/raw_data/combined/
 ## has to be a .csv or it will break
-metadata_file: 'madisVer_shotgun_metaG_batchesComb.csv'
+metadata_file: 'shotgun_metaG_metadata.csv'
 filter_to_fasta: '/projects/mapgar@xsede.org/outside_rna_seq_refs/human_comprehensive/hg38.p14.fa'
 ## database file paths - will eventually have the installation in the pipeline but for now will need to be pre-installed
 metaphlan_db: '/pl/active/LozuponeLab/databases/metaphlan_db_Nov24/'
