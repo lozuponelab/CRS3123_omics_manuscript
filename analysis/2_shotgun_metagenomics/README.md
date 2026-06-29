@@ -29,8 +29,11 @@ Similar to the 16S rRNA data analysis, a separate [Snakemake](https://snakemake.
 ### Table of Contents
 
 [Workflow steps](#workflow-steps)
+
 [Workflow directory auxillary files](#workflow-directory-auxillary-files)
+
 [How it runs](#how-it-runs)
+
 [Relevant outputs](#relevant-outputs)
 
 
@@ -40,10 +43,10 @@ The following is a high-level overview of the workflow including the software to
 | Step | Tools Used | Purpose | References |
 |----------|----------|----------|----------|
 | 1    | [FastQC](https://github.com/s-andrews/fastqc)/[MultiQC](https://github.com/multiqc/multiqc)     | pretrimming sequence quality control      | none |
-| 2    | [BBDuk](https://archive.jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbduk-guide/)     | sequence adapter trimming     | none (bbduk has prebuilt adapters file) |
+| 2    | [BBDuk](https://archive.jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbduk-guide/)     | sequence adapter trimming     | none (BBDuk has prebuilt adapters file) |
 | 3    | [BBSplit](https://archive.jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbmap-guide/)     | align sequences to host genome (human) to filter out host reads (splice-aware aligner)     | Hg38-p14.fasta | 
 | 4    | [FastQC](https://github.com/s-andrews/fastqc)/[MultiQC](https://github.com/multiqc/multiqc)     | sequence quality control post adapter trimming and host-read filtering     | none |
-| 5    | [HUMAnN/MetaPhlAn](https://github.com/biobakery/humann#humann-user-manual)     | calculate gene counts (HUMAnN) and perform taxonomic assignment (MetaPhlAn)     | requires the following HUMAnN databases to be [installed](https://github.com/biobakery/humann#5-download-the-databases): <br/> MetaPhlAn (mpa_vJun23_CHOCOPhlAnSGB_202307) <br/> ChocoPhlAn <br/> UniRef90 (diamond) <br/> Utility Mapping |
+| 5    | [HUMAnN/MetaPhlAn](https://github.com/biobakery/humann#humann-user-manual)     | calculate gene counts (HUMAnN) and perform taxonomic assignment (MetaPhlAn)     | **requires the following HUMAnN databases to be [installed](https://github.com/biobakery/humann#5-download-the-databases):** <br/> - MetaPhlAn <br/> - ChocoPhlAn <br/> - UniRef90 (diamond) <br/> - Utility Mapping |
 
 
 ### Workflow directory auxillary files
@@ -62,28 +65,28 @@ Since I don't have this workflow wrapped up nearly as well as the 16S rRNA workf
 > [!NOTE]
 > The following instructions are compatible with Linux and Mac OS and have not been tested on Windows!
 
-**1. If you haven't already, start with [cloning this GitHub repository](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/1_16S_rRNA/workflow/tutorial/tutorial.md#cloning-the-github-repository). Then, navigate to this directory:**
+#### **1. If you haven't already, start with [cloning this GitHub repository](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/1_16S_rRNA/workflow/tutorial/tutorial.md#cloning-the-github-repository). Then, navigate to this directory:**
 
 ```bash
 cd ~/CRS3123_omics_manuscript/analysis/2_shotgun_metagenomics
 ```
 
-**2. Install the Snakemake conda environment:**
+#### **2. Install the Snakemake conda environment:**
 
 ```bash
 conda env create -f workflow/envs/snake_env.yml
 ```
 
-> [!IMPORTANT]
+> [!WARNING]
 > This workflow can be run using conda environment `.yaml` files or Docker images (prebuilt [here](https://hub.docker.com/repository/docker/madiapgar/shotgun_meta/general)). Running using Docker images is a great choice if you're using Linux OS (HPCs included) but **_is not supported_** in Mac/Windows OS since Snakemake requires `apptainer`/`singularity` to be installed! <br/> <br/> If you're planning to run this workflow with the Docker images, you'll also need to install `apptainer` into your Snakemake conda environment (`snake`). _Caveat: If you're running this workflow in an HPC, `apptainer`/`singularity` may already be installed._ 
 
 
-**3. Install the HUMAnN conda environment and associated reference databases:**
+#### **3. Install the HUMAnN conda environment and associated reference databases:**
 
 > [!IMPORTANT]
 > These reference databases are large and take a good amount of computational power to download/install. It is recommended that these steps are performed in an HPC setting. 
 
-- Install and activate the `humann` conda environment.
+- Install and activate the `humann` conda environment
 
 ```bash
 ## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
@@ -96,7 +99,9 @@ conda activate humann
 mkdir humann_refs
 ``` 
 
-- Install the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database.
+**Reference databases:**
+
+- MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database
 
 ```bash
 ## make directory for metaphlan refs  they have any required reference files/databases. 
@@ -106,7 +111,7 @@ mkdir -p humann_refs/metaphlan_jun23
 metaphlan --install --bowtie2db humann_refs/metaphlan_jun23 --index mpa_vJun23_CHOCOPhlAnSGB_202307
 ```
 
-- Install the ChocoPhlAn database. 
+- ChocoPhlAn database
 
 ```bash
 ## make directory for chocophlan refs 
@@ -116,7 +121,7 @@ mkdir -p humann_refs/chocophlan
 humann_databases --download chocophlan full humann_refs/chocophlan --update-config yes 
 ```
 
-- Install the Uniref90 database.
+- Uniref90 database
 
 ```bash
 ## make a directory for uniref refs 
@@ -126,7 +131,7 @@ mkdir -p humann_refs/uniref90_diamond
 humann_databases --download uniref uniref90_diamond humann_refs/uniref90_diamond --update-config yes 
 ```
 
-- Install the utility mapping database.
+- Utility Mapping database
 
 ```bash
 ## make a directory for utility mapping refs
@@ -136,7 +141,7 @@ mkdir -p humann_refs/utility_mapping
 humann_databases --download utility_mapping full humann_refs/utility_mapping --update-config yes 
 ```
 
-**4. Update the config file (located at [`workflow/config_files/shotgun_meta_config.yml`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/config_files/shotgun_meta_config.yml)) to reflect the locations of reference databases and raw FASTQs:**
+#### **4. Update the config file (located at [`workflow/config_files/shotgun_meta_config.yml`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/config_files/shotgun_meta_config.yml)) to reflect the locations of reference databases and raw FASTQs:**
 
 > [!NOTE]
 > I've included the metadata file I used on the samples for this analysis [here](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/shotgun_metaG_metadata.csv)! If you are pulling the FASTQs from EBI-ENA, **_you will need to update_** the FASTQ file names under the `forward_reads` and `reverse_reads` columns. <br/> <br/> **TAKE NOTE:** The metadata file can also be edited in any way that will help your analysis of these samples and will work with this workflow **_as long as the column names are not changed_**!
@@ -154,7 +159,7 @@ uniref_db: 'humann_refs/uniref90_diamond/'
 utility_mapping_db: 'humann_refs/utility_mapping/'
 ```
 
-**5. Verify that the [slurm profile](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/profiles/default/config.yaml) and [sbatch script](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/run_shotgunMeta_workflow.sbatch) are compatible with your HPC:**
+#### **5. Verify that the [slurm profile](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/profiles/default/config.yaml) and [sbatch script](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/run_shotgunMeta_workflow.sbatch) are compatible with your HPC:**
 
 I have already (mostly) optimized the slurm resource requests for this workflow and they are included in the slurm profile on this repository. These resource requests can also be easily edited directly in the slurm profile if needed for specific jobs. Since I used CURC's Alpine HPC to run this workflow, the `slurm_partition` and `slurm_account` fields (lines 7-9) of this profile may need to be changed to be compatible with the HPC you are using to run this analysis. 
 
@@ -167,7 +172,7 @@ default-resources:
 I also included an example slurm sbatch script on this repository that includes the commands to actually run the entire workflow once you have everything set up. Additional information on what may need to be changed in this sbatch script is featured below. 
 
 > [!NOTE]
-> Since this workflow can run its associated software tools with conda or `apptainer`/`singularity`, you will need to update the snakemake `--software-deployment-method` flag to either conda (for conda execution) or apptainer (for `apptainer`/`singularity` execution of Docker images).
+> Since this workflow can run its associated software tools with conda or `apptainer`/`singularity`, you will need to update the Snakemake `--software-deployment-method` flag to either conda (for conda execution) or apptainer (for `apptainer`/`singularity` execution of Docker images).
 
 ```bash
 #!/bin/bash
@@ -215,15 +220,18 @@ snakemake \
     ##--dry-run ## include this line to dry run the workflow 
 ```
 
-**6. Run the workflow!**
+#### **6. Run the workflow!**
+
 Once the conda environments and reference databases are installed and the information in the the config, metadata CSV, slurm profile, and sbatch scripts is updated, the workflow can be run! I would recommend performing some initial dry runs to verify that all inputs are formatted correctly prior to fully running the workflow. 
 
 ### Relevant outputs 
-The workflow gives you several important output files but only a few of them were used for the downstream R analysis featured in the manuscript. These relevant output files fall in two categories: 1. KEGG Orthology gene counts (for all samples) and 2. MetaPhlAn per-sample taxonomic assignment.
+The workflow gives you several important output files but only a few of them were used for the downstream R analysis featured in the manuscript. These relevant output files fall in two categories: **1.** KEGG Orthology gene counts (for all samples) and **2.** MetaPhlAn per-sample taxonomic assignment.
 
 **1. KEGG Orthology gene counts:**
-Located at `shotgun_meta_out/humann/aggregated/all_genefamilies_namedKO.tsv`, this file of KO gene counts for all samples is the input for [`scripts/1_proc_ko_geneCounts.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/1_proc_ko_geneCounts.R), an overall data wrangling script that breaks the results into two different files (mainly to decrease file size so your R doesn't crash): `noTax_koCounts.tsv.gz` and `withTax_koCounts.tsv.gz`.
+
+Located at `shotgun_meta_out/humann/aggregated/all_genefamilies_namedKO.tsv` after workflow completion, this file of KO gene counts for all samples is the input for [`scripts/1_proc_ko_geneCounts.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/1_proc_ko_geneCounts.R), an overall data wrangling script that breaks the results into two different files (mainly to decrease file size so your R doesn't crash): `noTax_koCounts.tsv.gz` and `withTax_koCounts.tsv.gz`.
 
 **2. Per-sample taxonomic assignment:** 
-Located at `shotgun_meta_out/humann/sampleID/sampleID_humann_temp/sampleID_metaphlan_bugs_list.tsv`, these per-sample bug lists are an input for [`scripts/2_proc_metaphlan_bugsList.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/2_proc_metaphlan_bugsList.R) that concatenates them all together into one file named `all_bugs_list.tsv`.
+
+Located at `shotgun_meta_out/humann/sampleID/sampleID_humann_temp/sampleID_metaphlan_bugs_list.tsv` after workflow completion, these per-sample bug lists are an input for [`scripts/2_proc_metaphlan_bugsList.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/2_proc_metaphlan_bugsList.R) that concatenates them all together into one file named `all_bugs_list.tsv`.
 
