@@ -77,9 +77,9 @@ cd ~/CRS3123_omics_manuscript/analysis/2_shotgun_metagenomics
 
 &emsp;**a. Install the overall Snakemake conda environment:** 
 
-&emsp;Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed.Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
+&emsp;Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed. Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
 
-&emsp;```bash
+```bash
 conda env create -f workflow/envs/snake_env.yml
 ```
 
@@ -89,7 +89,7 @@ conda env create -f workflow/envs/snake_env.yml
 
 &emsp;**b. Install the HUMAnN conda environment and associated reference databases:**
 
-> HUMAnN requires several reference databases to be downloaded prior to running the workflow (see [above](#workflow-steps)), so you'll need to install the HUMAnN conda environment to do that.
+&emsp;HUMAnN requires several reference databases to be downloaded prior to running the workflow (see [above](#workflow-steps)), so you'll &emsp;need to install the HUMAnN conda environment to do that.
 
 ```bash
 ## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
@@ -107,7 +107,7 @@ mkdir humann_refs
 
 &emsp;**HUMAnN reference databases:**
 
-> First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The database version must match the versions of HUMAnN and MetPhlAn installed (if you used my instructions above, you shouldn't have to worry about this).
+&emsp;First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The database version must match the versions of HUMAnN and MetPhlAn installed (if you used my instructions above, you shouldn't have to worry about this).
 
 ```bash
 ## make directory for metaphlan refs  they have any required reference files/databases. 
