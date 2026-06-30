@@ -103,6 +103,9 @@ HUMAnN requires several reference databases to be downloaded prior to running th
 </dd>
 </dl>
 
+<dl>
+<dd>
+
 ```bash
 ## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
 conda env create -f workflow/envs/humann_env.yaml
@@ -113,6 +116,9 @@ conda activate humann
 ## create humann_refs directory
 mkdir humann_refs
 ```  
+
+</dd>
+</dl>
 
 > [!IMPORTANT]
 > These reference databases are large and take a good amount of computational power to download/install. It is recommended that these steps are performed in an HPC setting. 
