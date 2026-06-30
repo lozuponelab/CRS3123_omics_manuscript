@@ -31,12 +31,12 @@ Similar to the 16S rRNA data analysis, a separate [Snakemake](https://snakemake.
 [Workflow steps](#workflow-steps)<br/>
 [Workflow directory auxillary files](#workflow-directory-auxillary-files)<br/>
 [How it runs](#how-it-runs)<br/>
-  [1. Conda environments](#1-install-needed-conda-environments-and-reference-databases)<br/>
-  [2. Config and metadata](#2-add-required-workflow-input-file-locations)<br/>
-  [3. HPC set up](#3-hpc-set-up)<br/>
+    [1. Conda environments](#1-install-needed-conda-environments-and-reference-databases)<br/>
+    [2. Config and metadata](#2-add-required-workflow-input-file-locations)<br/>
+    [3. HPC set up](#3-hpc-set-up)<br/>
 [Relevant outputs](#relevant-outputs)<br/>
-  [1. Gene counts](#1-kegg-orthology-gene-counts)<br/>
-  [2. Taxonomic assignment](#2-metaphlan-per-sample-taxonomic-assignment)
+    [1. Gene counts](#1-kegg-orthology-gene-counts)<br/>
+    [2. Taxonomic assignment](#2-metaphlan-per-sample-taxonomic-assignment)
 
 
 ### Workflow steps
