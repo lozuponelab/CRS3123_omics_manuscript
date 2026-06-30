@@ -31,12 +31,12 @@ Similar to the 16S rRNA data analysis, a separate [Snakemake](https://snakemake.
 [Workflow steps](#workflow-steps)<br/>
 [Workflow directory auxillary files](#workflow-directory-auxillary-files)<br/>
 [How it runs](#how-it-runs)<br/>
-    [1. Conda environments](#1-install-needed-conda-environments-and-reference-databases)<br/>
-    [2. Config and metadata](#2-add-required-workflow-input-file-locations)<br/>
-    [3. HPC set up](#3-hpc-set-up)<br/>
+&emsp;[1. Conda environments](#1-install-needed-conda-environments-and-reference-databases)<br/>
+&emsp;[2. Config and metadata](#2-add-required-workflow-input-file-locations)<br/>
+&emsp;[3. HPC set up](#3-hpc-set-up)<br/>
 [Relevant outputs](#relevant-outputs)<br/>
-    [1. Gene counts](#1-kegg-orthology-gene-counts)<br/>
-    [2. Taxonomic assignment](#2-metaphlan-per-sample-taxonomic-assignment)
+&emsp;[1. Gene counts](#1-kegg-orthology-gene-counts)<br/>
+&emsp;[2. Taxonomic assignment](#2-metaphlan-per-sample-taxonomic-assignment)
 
 
 ### Workflow steps
@@ -75,7 +75,7 @@ cd ~/CRS3123_omics_manuscript/analysis/2_shotgun_metagenomics
 
 #### 1. Install needed conda environments and reference databases:
 
-  **a. Install the overall Snakemake conda environment:** 
+&emsp;**a. Install the overall Snakemake conda environment:** 
 
   Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed. Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
 
