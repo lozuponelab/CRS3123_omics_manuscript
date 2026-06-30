@@ -77,7 +77,9 @@ cd ~/CRS3123_omics_manuscript/analysis/2_shotgun_metagenomics
 
 &emsp;**a. Install the overall Snakemake conda environment:** 
 
-&emsp;Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed. Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
+<dl>
+<dd> Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed. Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies.
+</dl>
 
 ```bash
 conda env create -f workflow/envs/snake_env.yml
