@@ -77,75 +77,75 @@ cd ~/CRS3123_omics_manuscript/analysis/2_shotgun_metagenomics
 
 &emsp;**a. Install the overall Snakemake conda environment:** 
 
-  Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed. Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
+> Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed.Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
 
-  ```bash
-  conda env create -f workflow/envs/snake_env.yml
-  ```
+&emsp;```bash
+conda env create -f workflow/envs/snake_env.yml
+&emsp;```
 
 > [!WARNING]
 > This workflow can be run using conda environment `.yaml` files or Docker images (prebuilt [here](https://hub.docker.com/repository/docker/madiapgar/shotgun_meta/general)). Running using Docker images is a great choice if you're using Linux OS (HPCs included) but **_is not supported_** in Mac/Windows OS since Snakemake requires `apptainer`/`singularity` to be installed! <br/> <br/> If you're planning to run this workflow with the Docker images, you'll also need to install `apptainer` into your Snakemake conda environment (`snake`). _Caveat: If you're running this workflow in an HPC, `apptainer`/`singularity` may already be installed._ 
 
 
-  **b. Install the HUMAnN conda environment and associated reference databases:**
+&emsp;**b. Install the HUMAnN conda environment and associated reference databases:**
 
-  HUMAnN requires several reference databases to be downloaded prior to running the workflow (see [above](#workflow-steps)), so you'll need to install the HUMAnN conda environment to do that.
+> HUMAnN requires several reference databases to be downloaded prior to running the workflow (see [above](#workflow-steps)), so you'll need to install the HUMAnN conda environment to do that.
 
-  ```bash
-  ## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
-  conda env create -f workflow/envs/humann_env.yaml
+```bash
+## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
+conda env create -f workflow/envs/humann_env.yaml
 
-  ## activate the environment once its created
-  conda activate humann
+## activate the environment once its created
+conda activate humann
 
-  ## create humann_refs directory
-  mkdir humann_refs
-  ```  
+## create humann_refs directory
+mkdir humann_refs
+```  
 
 > [!IMPORTANT]
 > These reference databases are large and take a good amount of computational power to download/install. It is recommended that these steps are performed in an HPC setting. 
 
-  **HUMAnN reference databases:**
+&emsp;**HUMAnN reference databases:**
 
-  First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The database version must match the versions of HUMAnN and MetPhlAn installed (if you used my instructions above, you shouldn't have to worry about this).
+> First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The database version must match the versions of HUMAnN and MetPhlAn installed (if you used my instructions above, you shouldn't have to worry about this).
 
-  ```bash
-  ## make directory for metaphlan refs  they have any required reference files/databases. 
-  mkdir -p humann_refs/metaphlan_jun23
+```bash
+## make directory for metaphlan refs  they have any required reference files/databases. 
+mkdir -p humann_refs/metaphlan_jun23
 
-  ## install metphlan refs - MUST match the version of humann/metaphlan installed
-  metaphlan --install --bowtie2db humann_refs/metaphlan_jun23 --index mpa_vJun23_CHOCOPhlAnSGB_202307
-  ```
+## install metphlan refs - MUST match the version of humann/metaphlan installed
+metaphlan --install --bowtie2db humann_refs/metaphlan_jun23 --index mpa_vJun23_CHOCOPhlAnSGB_202307
+```
 
-  Next is the ChocoPhlAn database.
+&emsp;Next is the ChocoPhlAn database.
 
-  ```bash
-  ## make directory for chocophlan refs 
-  mkdir -p humann_refs/chocophlan
+```bash
+## make directory for chocophlan refs 
+mkdir -p humann_refs/chocophlan
 
-  ## download chocophlan refs 
-  humann_databases --download chocophlan full humann_refs/chocophlan --update-config yes 
-  ```
+## download chocophlan refs 
+humann_databases --download chocophlan full humann_refs/chocophlan --update-config yes 
+```
 
-  You'll also need the Uniref90 database.
+&emsp;You'll also need the Uniref90 database.
 
-  ```bash
-  ## make a directory for uniref refs 
-  mkdir -p humann_refs/uniref90_diamond
+```bash
+## make a directory for uniref refs 
+mkdir -p humann_refs/uniref90_diamond
 
-  ## download uniref90 diamond refs
-  humann_databases --download uniref uniref90_diamond humann_refs/uniref90_diamond --update-config yes 
-  ```
+## download uniref90 diamond refs
+humann_databases --download uniref uniref90_diamond humann_refs/uniref90_diamond --update-config yes 
+```
 
-  And finally is the Utility Mapping database.
+&emsp;And finally is the Utility Mapping database.
 
-  ```bash
-  ## make a directory for utility mapping refs
-  mkdir -p humann_refs/utility_mapping
+```bash
+## make a directory for utility mapping refs
+mkdir -p humann_refs/utility_mapping
 
-  ## download utility mapping refs 
-  humann_databases --download utility_mapping full humann_refs/utility_mapping --update-config yes 
-  ```
+## download utility mapping refs 
+humann_databases --download utility_mapping full humann_refs/utility_mapping --update-config yes 
+```
 
 #### 2. Add required workflow input file locations:
 
