@@ -77,11 +77,11 @@ cd ~/CRS3123_omics_manuscript/analysis/2_shotgun_metagenomics
 
 &emsp;**a. Install the overall Snakemake conda environment:** 
 
-> Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed.Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
+&emsp;Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed.Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
 
 &emsp;```bash
 conda env create -f workflow/envs/snake_env.yml
-&emsp;```
+```
 
 > [!WARNING]
 > This workflow can be run using conda environment `.yaml` files or Docker images (prebuilt [here](https://hub.docker.com/repository/docker/madiapgar/shotgun_meta/general)). Running using Docker images is a great choice if you're using Linux OS (HPCs included) but **_is not supported_** in Mac/Windows OS since Snakemake requires `apptainer`/`singularity` to be installed! <br/> <br/> If you're planning to run this workflow with the Docker images, you'll also need to install `apptainer` into your Snakemake conda environment (`snake`). _Caveat: If you're running this workflow in an HPC, `apptainer`/`singularity` may already be installed._ 
