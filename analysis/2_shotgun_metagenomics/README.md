@@ -24,7 +24,7 @@ Manuscript figures generated from the contents of this directory:
 Similar to the 16S rRNA data analysis, a separate [Snakemake](https://snakemake.readthedocs.io/en/stable/) workflow was built to process the shotgun metagenomics sequencing data which can be found [here](https://github.com/lozuponelab/CRS3123_omics_manuscript/tree/main/analysis/2_shotgun_metagenomics/workflow). 
 
 > [!WARNING]
-> I wrote this workflow solely to process the shotgun metagenomics FASTQ files and I am the only one who has ever run it. That being said, it's a bit less put together than the 16S rRNA workflow and I would **_highly recommend_** that anyone who tries to run this exact workflow be **_extremely familiar and comfortable_** with the following: <br/> - Snakemake (v8+) <br/> - running jobs in HPCs with slurm <br/> - Docker/Singularity <br/> - working with large output files <br/> <br/> On that note, I would **_also highly recommend_** that this entire workflow be run in an HPC setting due to space and computational requirements!
+> I wrote this workflow solely to process the shotgun metagenomics FASTQ files and I am the only one who has ever run it. That being said, it's a bit less put together than the 16S rRNA workflow and I would **_highly recommend_** that anyone who tries to run this exact workflow be **_extremely familiar and comfortable_** with the following: <br/> &emsp;- Snakemake (v8+) <br/> &emsp;- running jobs in HPCs with slurm <br/> &emsp;- Docker/Singularity <br/> &emsp;- working with large output files <br/> <br/> On that note, I would **_also highly recommend_** that this entire workflow be run in an HPC setting due to space and computational requirements!
 
 ### Table of Contents
 
