@@ -91,7 +91,9 @@ conda env create -f workflow/envs/snake_env.yml
 
 &emsp;**b. Install the HUMAnN conda environment and associated reference databases:**
 
-&emsp;HUMAnN requires several reference databases to be downloaded prior to running the workflow (see [above](#workflow-steps)), so you'll &emsp;need to install the HUMAnN conda environment to do that.
+<dl>
+<dd> HUMAnN requires several reference databases to be downloaded prior to running the workflow (see [above](#workflow-steps)), so you'll need to install the HUMAnN conda environment to do that.
+</dl>
 
 ```bash
 ## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
@@ -109,7 +111,9 @@ mkdir humann_refs
 
 &emsp;**HUMAnN reference databases:**
 
-&emsp;First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The database version must match the versions of HUMAnN and MetPhlAn installed (if you used my instructions above, you shouldn't have to worry about this).
+<dl>
+<dd> First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The database version must match the versions of HUMAnN and MetPhlAn installed (if you used my instructions above, you shouldn't have to worry about this).
+</dl>
 
 ```bash
 ## make directory for metaphlan refs  they have any required reference files/databases. 
