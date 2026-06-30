@@ -85,9 +85,15 @@ Since this workflow is written in Snakemake, you'll need to run the workflow out
 </dd>
 </dl>
 
+<dl>
+<dd>
+
 ```bash
 conda env create -f workflow/envs/snake_env.yml
 ```
+
+</dd>
+</dl>
 
 > [!WARNING]
 > This workflow can be run using conda environment `.yaml` files or Docker images (prebuilt [here](https://hub.docker.com/repository/docker/madiapgar/shotgun_meta/general)). Running using Docker images is a great choice if you're using Linux OS (HPCs included) but **_is not supported_** in Mac/Windows OS since Snakemake requires `apptainer`/`singularity` to be installed! <br/> <br/> If you're planning to run this workflow with the Docker images, you'll also need to install `apptainer` into your Snakemake conda environment (`snake`). _Caveat: If you're running this workflow in an HPC, `apptainer`/`singularity` may already be installed._ 
@@ -133,6 +139,9 @@ First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The databa
 </dd>
 </dl>
 
+<dl>
+<dd>
+
 ```bash
 ## make directory for metaphlan refs  they have any required reference files/databases. 
 mkdir -p humann_refs/metaphlan_jun23
@@ -141,7 +150,13 @@ mkdir -p humann_refs/metaphlan_jun23
 metaphlan --install --bowtie2db humann_refs/metaphlan_jun23 --index mpa_vJun23_CHOCOPhlAnSGB_202307
 ```
 
+</dd>
+</dl>
+
 &emsp;Next is the ChocoPhlAn database.
+
+<dl>
+<dd>
 
 ```bash
 ## make directory for chocophlan refs 
@@ -151,7 +166,13 @@ mkdir -p humann_refs/chocophlan
 humann_databases --download chocophlan full humann_refs/chocophlan --update-config yes 
 ```
 
+</dd>
+</dl>
+
 &emsp;You'll also need the Uniref90 database.
+
+<dl>
+<dd>
 
 ```bash
 ## make a directory for uniref refs 
@@ -161,7 +182,13 @@ mkdir -p humann_refs/uniref90_diamond
 humann_databases --download uniref uniref90_diamond humann_refs/uniref90_diamond --update-config yes 
 ```
 
+</dd>
+</dl>
+
 &emsp;And finally is the Utility Mapping database.
+
+<dl>
+<dd>
 
 ```bash
 ## make a directory for utility mapping refs
@@ -170,6 +197,9 @@ mkdir -p humann_refs/utility_mapping
 ## download utility mapping refs 
 humann_databases --download utility_mapping full humann_refs/utility_mapping --update-config yes 
 ```
+
+</dd>
+</dl>
 
 #### 2. Add required workflow input file locations:
 
