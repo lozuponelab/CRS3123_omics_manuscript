@@ -31,13 +31,18 @@ Similar to the 16S rRNA data analysis, a separate [Snakemake](https://snakemake.
 [Workflow steps](#workflow-steps)<br/>
 [Workflow directory auxillary files](#workflow-directory-auxillary-files)<br/>
 [How it runs](#how-it-runs)<br/>
-[Relevant outputs](#relevant-outputs)
+  [1. Conda environments](#1-install-needed-conda-environments-and-reference-databases)<br/>
+  [2. Config and metadata](#2-add-required-workflow-input-file-locations)<br/>
+  [3. HPC set up](#3-hpc-set-up)<br/>
+[Relevant outputs](#relevant-outputs)<br/>
+  [1. Gene counts](#1-kegg-orthology-gene-counts)<br/>
+  [2. Taxonomic assignment](#2-metaphlan-per-sample-taxonomic-assignment)
 
 
 ### Workflow steps
 The following is a high-level overview of the workflow including the software tools used, why, and if they have any required reference files/databases. 
 
-| Step | Tools Used | Purpose | References |
+| Step | Tools Used | Purpose | Reference Files |
 |----------|----------|----------|----------|
 | 1    | [FastQC](https://github.com/s-andrews/fastqc)/[MultiQC](https://github.com/multiqc/multiqc)     | pretrimming sequence quality control      | none |
 | 2    | [BBDuk](https://archive.jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbduk-guide/)     | sequence adapter trimming     | none (BBDuk has prebuilt adapters file) |
@@ -62,83 +67,89 @@ Since I don't have this workflow wrapped up nearly as well as the 16S rRNA workf
 > [!NOTE]
 > The following instructions are compatible with Linux and Mac OS and have not been tested on Windows!
 
-#### **1. If you haven't already, start with [cloning this GitHub repository](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/1_16S_rRNA/workflow/tutorial/tutorial.md#cloning-the-github-repository). Then, navigate to this directory:**
+If you haven't already, start with [cloning this GitHub repository](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/1_16S_rRNA/workflow/tutorial/tutorial.md#cloning-the-github-repository). Then, navigate to this directory:
 
 ```bash
 cd ~/CRS3123_omics_manuscript/analysis/2_shotgun_metagenomics
 ```
 
-#### **2. Install the Snakemake conda environment:**
+#### 1. Install needed conda environments and reference databases:
 
-```bash
-conda env create -f workflow/envs/snake_env.yml
-```
+  **a. Install the overall Snakemake conda environment:** 
+
+  Since this workflow is written in Snakemake, you'll need to run the workflow out of a conda environment that has Snakemake installed. Luckily, I've already put together an environment `.yaml` file that includes all needed dependencies. 
+
+  ```bash
+  conda env create -f workflow/envs/snake_env.yml
+  ```
 
 > [!WARNING]
 > This workflow can be run using conda environment `.yaml` files or Docker images (prebuilt [here](https://hub.docker.com/repository/docker/madiapgar/shotgun_meta/general)). Running using Docker images is a great choice if you're using Linux OS (HPCs included) but **_is not supported_** in Mac/Windows OS since Snakemake requires `apptainer`/`singularity` to be installed! <br/> <br/> If you're planning to run this workflow with the Docker images, you'll also need to install `apptainer` into your Snakemake conda environment (`snake`). _Caveat: If you're running this workflow in an HPC, `apptainer`/`singularity` may already be installed._ 
 
 
-#### **3. Install the HUMAnN conda environment and associated reference databases:**
+  **b. Install the HUMAnN conda environment and associated reference databases:**
+
+  HUMAnN requires several reference databases to be downloaded prior to running the workflow (see [above](#workflow-steps)), so you'll need to install the HUMAnN conda environment to do that.
+
+  ```bash
+  ## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
+  conda env create -f workflow/envs/humann_env.yaml
+
+  ## activate the environment once its created
+  conda activate humann
+
+  ## create humann_refs directory
+  mkdir humann_refs
+  ```  
 
 > [!IMPORTANT]
 > These reference databases are large and take a good amount of computational power to download/install. It is recommended that these steps are performed in an HPC setting. 
 
-- Install and activate the `humann` conda environment
+  **HUMAnN reference databases:**
 
-```bash
-## install humann from prebuilt conda env yaml file - this is recommended to keep versioning consistent
-conda env create -f workflow/envs/humann_env.yaml
+  First up is the MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database. The database version must match the versions of HUMAnN and MetPhlAn installed (if you used my instructions above, you shouldn't have to worry about this).
 
-## activate the environment once its created
-conda activate humann
+  ```bash
+  ## make directory for metaphlan refs  they have any required reference files/databases. 
+  mkdir -p humann_refs/metaphlan_jun23
 
-## create humann_refs directory
-mkdir humann_refs
-``` 
+  ## install metphlan refs - MUST match the version of humann/metaphlan installed
+  metaphlan --install --bowtie2db humann_refs/metaphlan_jun23 --index mpa_vJun23_CHOCOPhlAnSGB_202307
+  ```
 
-**Reference databases:**
+  Next is the ChocoPhlAn database.
 
-- MetaPhlAn `mpa_vJun23_CHOCOPhlAnSGB_202307` database
+  ```bash
+  ## make directory for chocophlan refs 
+  mkdir -p humann_refs/chocophlan
 
-```bash
-## make directory for metaphlan refs  they have any required reference files/databases. 
-mkdir -p humann_refs/metaphlan_jun23
+  ## download chocophlan refs 
+  humann_databases --download chocophlan full humann_refs/chocophlan --update-config yes 
+  ```
 
-## install metphlan refs - MUST match the version of humann/metaphlan installed
-metaphlan --install --bowtie2db humann_refs/metaphlan_jun23 --index mpa_vJun23_CHOCOPhlAnSGB_202307
-```
+  You'll also need the Uniref90 database.
 
-- ChocoPhlAn database
+  ```bash
+  ## make a directory for uniref refs 
+  mkdir -p humann_refs/uniref90_diamond
 
-```bash
-## make directory for chocophlan refs 
-mkdir -p humann_refs/chocophlan
+  ## download uniref90 diamond refs
+  humann_databases --download uniref uniref90_diamond humann_refs/uniref90_diamond --update-config yes 
+  ```
 
-## download chocophlan refs 
-humann_databases --download chocophlan full humann_refs/chocophlan --update-config yes 
-```
+  And finally is the Utility Mapping database.
 
-- Uniref90 database
+  ```bash
+  ## make a directory for utility mapping refs
+  mkdir -p humann_refs/utility_mapping
 
-```bash
-## make a directory for uniref refs 
-mkdir -p humann_refs/uniref90_diamond
+  ## download utility mapping refs 
+  humann_databases --download utility_mapping full humann_refs/utility_mapping --update-config yes 
+  ```
 
-## download uniref90 diamond refs
-humann_databases --download uniref uniref90_diamond humann_refs/uniref90_diamond --update-config yes 
-```
+#### 2. Add required workflow input file locations:
 
-- Utility Mapping database
-
-```bash
-## make a directory for utility mapping refs
-mkdir -p humann_refs/utility_mapping
-
-## download utility mapping refs 
-humann_databases --download utility_mapping full humann_refs/utility_mapping --update-config yes 
-```
-
-#### **4. Update the config file (located at [`workflow/config_files/shotgun_meta_config.yml`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/config_files/shotgun_meta_config.yml)) to reflect the locations of reference databases and raw FASTQs:**
+I've provided an example workflow config file (located at [`workflow/config_files/shotgun_meta_config.yml`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/config_files/shotgun_meta_config.yml)) that you'll need to update to reflect the locations of reference databases downloaded in the section above, host reference genome FASTA file, and raw FASTQs. Explanations of each config entry are included below. 
 
 > [!NOTE]
 > I've included the metadata file I used on the samples for this analysis [here](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/shotgun_metaG_metadata.csv)! If you are pulling the FASTQs from EBI-ENA, **_you will need to update_** the FASTQ file names under the `forward_reads` and `reverse_reads` columns. <br/> <br/> **TAKE NOTE:** The metadata file can also be edited in any way that will help your analysis of these samples and will work with this workflow **_as long as the column names are not changed_**!
@@ -156,7 +167,9 @@ uniref_db: 'humann_refs/uniref90_diamond/'
 utility_mapping_db: 'humann_refs/utility_mapping/'
 ```
 
-#### **5. Verify that the [slurm profile](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/profiles/default/config.yaml) and [sbatch script](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/run_shotgunMeta_workflow.sbatch) are compatible with your HPC:**
+#### 3. HPC set up:
+
+You'll also need to verify that the [slurm profile](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/profiles/default/config.yaml) and [sbatch script](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/workflow/run_shotgunMeta_workflow.sbatch) are compatible with your HPC.
 
 I have already (mostly) optimized the slurm resource requests for this workflow and they are included in the slurm profile on this repository. These resource requests can also be easily edited directly in the slurm profile if needed for specific jobs. Since I used CURC's Alpine HPC to run this workflow, the `slurm_partition` and `slurm_account` fields (lines 7-9) of this profile may need to be changed to be compatible with the HPC you are using to run this analysis. 
 
@@ -217,18 +230,16 @@ snakemake \
     ##--dry-run ## include this line to dry run the workflow 
 ```
 
-#### **6. Run the workflow!**
-
-Once the conda environments and reference databases are installed and the information in the the config, metadata CSV, slurm profile, and sbatch scripts is updated, the workflow can be run! I would recommend performing some initial dry runs to verify that all inputs are formatted correctly prior to fully running the workflow. 
+Once the conda environments and reference databases are installed and the information in the the config, metadata CSV, slurm profile, and sbatch scripts is updated, the workflow can be run (by submitting the sbatch script above)! I would recommend performing some initial dry runs to verify that all inputs are formatted correctly prior to fully running the workflow. 
 
 ### Relevant outputs 
 The workflow gives you several important output files but only a few of them were used for the downstream `R` analysis featured in the manuscript. These relevant output files fall in two categories: 
 
-**1. KEGG Orthology gene counts:**
+#### 1. KEGG Orthology gene counts:
 
 Located at `shotgun_meta_out/humann/aggregated/all_genefamilies_namedKO.tsv` after workflow completion, this file of KO gene counts for all samples is the input for [`scripts/1_proc_ko_geneCounts.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/1_proc_ko_geneCounts.R), an overall data wrangling script that breaks the results into two different files (mainly to decrease file size so your `R` doesn't crash): `noTax_koCounts.tsv.gz` and `withTax_koCounts.tsv.gz`.
 
-**2. MetaPhlAn per-sample taxonomic assignment:** 
+#### 2. MetaPhlAn per-sample taxonomic assignment:
 
 Located at `shotgun_meta_out/humann/sampleID/sampleID_humann_temp/sampleID_metaphlan_bugs_list.tsv` after workflow completion, these per-sample bug lists are an input for [`scripts/2_proc_metaphlan_bugsList.R`](https://github.com/lozuponelab/CRS3123_omics_manuscript/blob/main/analysis/2_shotgun_metagenomics/scripts/2_proc_metaphlan_bugsList.R) that concatenates them all together into one file named `all_bugs_list.tsv`.
 
